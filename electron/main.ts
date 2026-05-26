@@ -141,7 +141,14 @@ app.whenReady().then(() => {
   })
 
   createWindow()
-  setupAutoUpdater()
+  setupAutoUpdater({
+    prepareForQuit: () => {
+      tray?.destroy()
+      tray = null
+      mainWindow?.destroy()
+      mainWindow = null
+    }
+  })
 })
 
 app.on('window-all-closed', () => {

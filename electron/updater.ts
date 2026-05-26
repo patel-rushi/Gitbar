@@ -1,36 +1,80 @@
-import { dialog } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import type { UpdateDownloadedEvent } from 'electron-updater'
+import { installUnsignedMacUpdate, isAppProperlySigned } from './macUpdate'
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
+
+type UpdaterHooks = {
+  prepareForQuit?: () => void
+}
+
+let hooks: UpdaterHooks = {}
 
 function isDev(): boolean {
   return !!process.env.VITE_DEV_SERVER_URL
 }
 
-export function setupAutoUpdater(): void {
+function prepareAppForUpdateInstall(): void {
+  hooks.prepareForQuit?.()
+  app.removeAllListeners('window-all-closed')
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) window.destroy()
+  })
+}
+
+function installDownloadedUpdate(info: UpdateDownloadedEvent): void {
+  prepareAppForUpdateInstall()
+
+  if (process.platform === 'darwin' && !isAppProperlySigned()) {
+    installUnsignedMacUpdate(info.downloadedFile)
+    return
+  }
+
+  setImmediate(() => {
+    autoUpdater.quitAndInstall(false, true)
+  })
+}
+
+function promptToInstallUpdate(info: UpdateDownloadedEvent): void {
+  dialog
+    .showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: `GitBar ${info.version} is ready to install.`,
+      detail: 'Restart the app to apply the update.',
+      buttons: ['Restart', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    .then(({ response }) => {
+      if (response !== 0) return
+
+      try {
+        installDownloadedUpdate(info)
+      } catch (err) {
+        console.error('Failed to install update:', err)
+        dialog.showErrorBox(
+          'Update Failed',
+          'GitBar could not install the update automatically. Download the latest DMG from GitHub Releases instead.'
+        )
+      }
+    })
+}
+
+export function setupAutoUpdater(nextHooks: UpdaterHooks = {}): void {
   if (isDev()) return
 
+  hooks = nextHooks
   autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on('error', (err) => {
     console.error('Auto-updater error:', err)
   })
 
   autoUpdater.on('update-downloaded', (info) => {
-    dialog
-      .showMessageBox({
-        type: 'info',
-        title: 'Update Ready',
-        message: `GitBar ${info.version} is ready to install.`,
-        detail: 'Restart the app to apply the update.',
-        buttons: ['Restart', 'Later'],
-        defaultId: 0,
-        cancelId: 1
-      })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall()
-      })
+    promptToInstallUpdate(info)
   })
 
   setTimeout(() => {
