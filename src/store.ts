@@ -282,7 +282,9 @@ export const useStore = create<AppState>((set, get) => ({
       const mergedReviewRequested = [
         ...reviewRequestedPRs,
         ...teammatePRs.filter(pr => !reviewRequestedSeenIds.has(pr.id))
-      ].filter(pr => !reviewedIds.has(pr.id))
+      ]
+        .filter(pr => !reviewedIds.has(pr.id))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       // Squad activity (cached internally - only fetches if tab is visible)
       const squadActivityPRs = squadTabVisible
