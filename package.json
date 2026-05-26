@@ -24,7 +24,7 @@
     "publish": {
       "provider": "github",
       "owner": "patel-rushi",
-      "repo": "GitBar"
+      "repo": "Gitbar"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
