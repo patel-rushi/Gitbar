@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import type { PullRequest, ReviewState } from '../types'
 
 function getStatus(pr: PullRequest): 'open' | 'draft' | 'merged' | 'closed' {
@@ -47,11 +47,16 @@ interface PRItemProps {
   onCommentBadgeClick?: () => void
   onIgnore?: () => void
   onClick: () => void
+  timeSource?: 'updated' | 'created'
 }
 
-export function PRItem({ pr, unread, showReviewState, newCommentCount, onCommentBadgeClick, onIgnore, onClick }: PRItemProps) {
+export function PRItem({ pr, unread, showReviewState, newCommentCount, onCommentBadgeClick, onIgnore, onClick, timeSource = 'updated' }: PRItemProps) {
   const status = getStatus(pr)
-  const timeAgo = formatDistanceToNow(new Date(pr.updated_at), { addSuffix: true })
+  const timestamp = timeSource === 'created' ? pr.created_at : pr.updated_at
+  const date = new Date(timestamp)
+  const timeAgo = formatDistanceToNow(date, { addSuffix: true })
+  const timeLabel = timeSource === 'created' ? 'Opened' : 'Updated'
+  const timeTitle = `${timeLabel} ${format(date, 'PPp')}`
 
   return (
     <div className={`pr-item${unread ? ' pr-item-unread' : ''}`} onClick={onClick}>
@@ -88,7 +93,7 @@ export function PRItem({ pr, unread, showReviewState, newCommentCount, onComment
           <span>·</span>
           <span>{pr.user.login}</span>
           <span>·</span>
-          <span>{timeAgo}</span>
+          <span title={timeTitle}>{timeAgo}</span>
           {pr.comments > 0 && (
             <>
               <span>·</span>

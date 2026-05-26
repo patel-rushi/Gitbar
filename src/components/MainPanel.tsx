@@ -79,7 +79,7 @@ export function MainPanel() {
           </>
         )
       case 'review-requested':
-        return <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." allowIgnore />
+        return <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." allowIgnore timeSource="created" />
       case 'squad-activity':
         return <PRList prs={squadActivityPRs} emptyTitle="No squad activity" emptyText="PRs your team is reviewing will appear here. Configure teams in Settings → Review Requested." />
       case 'pinned':

@@ -11,9 +11,10 @@ interface PRListProps {
   commentSource?: 'myPRComments' | 'reviewReplies'
   onCommentBadgeClick?: () => void
   allowIgnore?: boolean
+  timeSource?: 'updated' | 'created'
 }
 
-export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, commentSource, onCommentBadgeClick, allowIgnore }: PRListProps) {
+export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, commentSource, onCommentBadgeClick, allowIgnore, timeSource }: PRListProps) {
   const store = useStore()
   const { ignoredPRs, ignorePR } = store
 
@@ -52,6 +53,7 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           onCommentBadgeClick={onCommentBadgeClick}
           onIgnore={allowIgnore ? () => ignorePR(`${pr.repo_full_name}#${pr.number}`) : undefined}
           onClick={() => window.gitbar?.openExternal(pr.html_url)}
+          timeSource={timeSource}
         />
       ))}
     </div>
