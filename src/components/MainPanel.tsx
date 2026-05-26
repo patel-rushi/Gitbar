@@ -5,6 +5,7 @@ import { PinnedFilters } from './PinnedFilters'
 import { SegmentedToggle } from './SegmentedToggle'
 import { CommentsList } from './CommentsList'
 import { GearIconSimple, RefreshIcon, CheckIcon } from './Icons'
+import { AppVersion } from './AppVersion'
 import { formatDistanceToNow } from 'date-fns'
 
 export function MainPanel() {
@@ -94,6 +95,7 @@ export function MainPanel() {
         <div className="header-left">
           {avatarUrl && <img className="header-avatar" src={avatarUrl} alt={username || ''} />}
           <span className="header-title">GitBar</span>
+          <AppVersion className="header-version" />
           {badgeCount > 0 && (
             <span style={{
               background: 'var(--red)',
@@ -151,7 +153,10 @@ export function MainPanel() {
         ) : (
           <span>Not synced yet</span>
         )}
-        <span>{username}</span>
+        <span className="footer-right">
+          <AppVersion />
+          {username && <span className="footer-username">{username}</span>}
+        </span>
       </div>
     </>
   )

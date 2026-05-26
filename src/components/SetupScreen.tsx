@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { GitBranchIcon } from './Icons'
+import { AppVersion } from './AppVersion'
 
 export function SetupScreen() {
   const [token, setToken] = useState('')
@@ -61,6 +62,8 @@ export function SetupScreen() {
         <br />
         Required scopes: <code>notifications</code>, <code>repo</code>
       </p>
+
+      <AppVersion className="setup-version" />
     </div>
   )
 }
