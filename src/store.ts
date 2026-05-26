@@ -278,10 +278,11 @@ export const useStore = create<AppState>((set, get) => ({
 
       // Merge teammate PRs into review requested (deduplicated)
       const reviewRequestedSeenIds = new Set(reviewRequestedPRs.map(pr => pr.id))
+      const reviewedIds = new Set(rawReviewedPRs.map(pr => pr.id))
       const mergedReviewRequested = [
         ...reviewRequestedPRs,
         ...teammatePRs.filter(pr => !reviewRequestedSeenIds.has(pr.id))
-      ]
+      ].filter(pr => !reviewedIds.has(pr.id))
 
       // Squad activity (cached internally - only fetches if tab is visible)
       const squadActivityPRs = squadTabVisible
