@@ -4,6 +4,7 @@ import { ChevronLeft, DragHandle, PlusIcon, TrashIcon } from './Icons'
 import { AutocompleteInput } from './AutocompleteInput'
 import type { TabConfig, AppSettings } from '../types'
 import { fetchUserTeams, fetchOrgTeams, fetchUserOrgs, fetchAllOrgTeamSlugs, fetchOrgMembers, type TeamInfo } from '../github'
+import packageJson from '../../package.json'
 
 export function SettingsPanel() {
   const { settings, updateSettings, tabs, updateTabs, clearToken, clearBadge, setView, username, ignoredPRs, unignorePR } = useStore()
@@ -231,6 +232,8 @@ export function SettingsPanel() {
             Revoke Token & Sign Out
           </button>
         </div>
+
+        <div className="settings-version">GitBar v{packageJson.version}</div>
       </div>
     </>
   )

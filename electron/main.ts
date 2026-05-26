@@ -126,7 +126,7 @@ app.dock?.hide()
 app.whenReady().then(() => {
   const icon = loadTrayIcon()
   tray = new Tray(icon)
-  tray.setToolTip('GitBar')
+  tray.setToolTip(`GitBar v${app.getVersion()}`)
   tray.on('click', toggleWindow)
 
   tray.on('right-click', () => {
