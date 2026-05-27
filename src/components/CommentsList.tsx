@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from 'date-fns'
 import type { CommentActivity } from '../types'
 import { useStore } from '../store'
+import { CheckIcon } from './Icons'
 
 interface CommentsListProps {
   items: CommentActivity[]
@@ -58,6 +59,15 @@ export function CommentsList({ items, showMyComment, emptyTitle = 'No comments',
               className={`comment-item${item.read ? '' : ' comment-unread'}${item.isResolved ? ' comment-resolved' : ''}`}
               onClick={() => handleClick(item)}
             >
+              {!item.read && (
+                <button
+                  className="comment-mark-read-btn"
+                  title="Mark as read"
+                  onClick={e => { e.stopPropagation(); markCommentRead(item.id) }}
+                >
+                  <CheckIcon />
+                </button>
+              )}
               {showMyComment && item.myComment && (
                 <div className="comment-my-context">
                   <span className="comment-my-label">You:</span>

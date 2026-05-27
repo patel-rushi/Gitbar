@@ -1048,6 +1048,32 @@ html, body, #root {
   background: var(--bg-hover);
 }
 
+.comment-mark-read-btn {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.08));
+  color: var(--text-muted);
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.comment-item:hover .comment-mark-read-btn {
+  display: flex;
+}
+
+.comment-mark-read-btn:hover {
+  background: var(--accent, #2f81f7);
+  color: white;
+}
+
 .comment-unread::before {
   content: '';
   position: absolute;

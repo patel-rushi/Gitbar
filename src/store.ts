@@ -170,9 +170,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   markAllRead: () => {
     const events = get().events.map(e => ({ ...e, read: true }))
+    const myPRComments = get().myPRComments.map(c => ({ ...c, read: true }))
+    const reviewReplies = get().reviewReplies.map(c => ({ ...c, read: true }))
     saveToStorage('gitbar_events', events)
     saveToStorage('gitbar_badge', 0)
-    set({ events, badgeCount: 0 })
+    saveToStorage('gitbar_my_pr_comments', myPRComments)
+    saveToStorage('gitbar_review_replies', reviewReplies)
+    set({ events, myPRComments, reviewReplies, badgeCount: 0 })
     window.gitbar?.updateBadge(0)
   },
 
