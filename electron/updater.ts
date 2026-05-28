@@ -4,7 +4,8 @@ import type { UpdateDownloadedEvent } from 'electron-updater'
 import { installUnsignedMacUpdate, isAppProperlySigned } from './macUpdate'
 import { track } from './analytics'
 
-const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+const ON_FOCUS_THROTTLE_MS = 60 * 60 * 1000
 
 type UpdaterHooks = {
   prepareForQuit?: () => void
@@ -13,6 +14,22 @@ type UpdaterHooks = {
 
 let hooks: UpdaterHooks = {}
 let pendingUpdate: UpdateDownloadedEvent | null = null
+let lastCheckAt = 0
+
+function runUpdateCheck(): void {
+  lastCheckAt = Date.now()
+  autoUpdater.checkForUpdatesAndNotify().catch(console.error)
+}
+
+export function maybeCheckForUpdates(): void {
+  if (isDev()) return
+  if (pendingUpdate) {
+    broadcastUpdateAvailable(pendingUpdate)
+    return
+  }
+  if (Date.now() - lastCheckAt < ON_FOCUS_THROTTLE_MS) return
+  runUpdateCheck()
+}
 
 function isDev(): boolean {
   return !!process.env.VITE_DEV_SERVER_URL
@@ -87,13 +104,8 @@ export function setupAutoUpdater(nextHooks: UpdaterHooks = {}): void {
     handleUpdateDownloaded(info)
   })
 
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch(console.error)
-  }, 5000)
-
-  setInterval(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch(console.error)
-  }, UPDATE_CHECK_INTERVAL_MS)
+  setTimeout(runUpdateCheck, 5000)
+  setInterval(runUpdateCheck, UPDATE_CHECK_INTERVAL_MS)
 }
 
 export async function checkForUpdatesManually(): Promise<void> {

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, Notification, screen } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { setupAutoUpdater, checkForUpdatesManually } from './updater'
+import { setupAutoUpdater, checkForUpdatesManually, maybeCheckForUpdates } from './updater'
 import { initAnalytics, track } from './analytics'
 
 initAnalytics()
@@ -113,6 +113,7 @@ function showWindow() {
   mainWindow.setPosition(adjustedX, y)
   mainWindow.show()
   mainWindow.focus()
+  maybeCheckForUpdates()
 }
 
 function toggleWindow() {
