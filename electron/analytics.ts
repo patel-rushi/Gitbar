@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { initialize, trackEvent } from '@aptabase/electron/main'
 
-const APTABASE_APP_KEY = '<APTABASE_APP_KEY>'
+const APTABASE_APP_KEY = 'A-US-4231437362'
 
 let enabled = false
 
