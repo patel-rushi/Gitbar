@@ -6,6 +6,7 @@ import { SegmentedToggle } from './SegmentedToggle'
 import { CommentsList } from './CommentsList'
 import { GearIconSimple, RefreshIcon, CheckIcon } from './Icons'
 import { AppVersion } from './AppVersion'
+import { UpdateBanner } from './UpdateBanner'
 import { formatDistanceToNow } from 'date-fns'
 
 export function MainPanel() {
@@ -125,6 +126,8 @@ export function MainPanel() {
           </button>
         </div>
       </div>
+
+      <UpdateBanner />
 
       <div className="tabs">
         {visibleTabs.map(tab => (

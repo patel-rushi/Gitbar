@@ -1,15 +1,18 @@
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateDownloadedEvent } from 'electron-updater'
 import { installUnsignedMacUpdate, isAppProperlySigned } from './macUpdate'
+import { track } from './analytics'
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 
 type UpdaterHooks = {
   prepareForQuit?: () => void
+  showWindow?: () => void
 }
 
 let hooks: UpdaterHooks = {}
+let pendingUpdate: UpdateDownloadedEvent | null = null
 
 function isDev(): boolean {
   return !!process.env.VITE_DEV_SERVER_URL
@@ -23,7 +26,17 @@ function prepareAppForUpdateInstall(): void {
   })
 }
 
+function broadcastUpdateAvailable(info: UpdateDownloadedEvent): void {
+  const payload = { version: info.version }
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send('update-available', payload)
+    }
+  }
+}
+
 function installDownloadedUpdate(info: UpdateDownloadedEvent): void {
+  track('update_applied', { from: app.getVersion(), to: info.version })
   prepareAppForUpdateInstall()
 
   if (process.platform === 'darwin' && !isAppProperlySigned()) {
@@ -36,31 +49,28 @@ function installDownloadedUpdate(info: UpdateDownloadedEvent): void {
   })
 }
 
-function promptToInstallUpdate(info: UpdateDownloadedEvent): void {
-  dialog
-    .showMessageBox({
-      type: 'info',
-      title: 'Update Ready',
-      message: `GitBar ${info.version} is ready to install.`,
-      detail: 'Restart the app to apply the update.',
-      buttons: ['Restart', 'Later'],
-      defaultId: 0,
-      cancelId: 1
-    })
-    .then(({ response }) => {
-      if (response !== 0) return
-
-      try {
-        installDownloadedUpdate(info)
-      } catch (err) {
-        console.error('Failed to install update:', err)
-        dialog.showErrorBox(
-          'Update Failed',
-          'GitBar could not install the update automatically. Download the latest DMG from GitHub Releases instead.'
-        )
-      }
-    })
+function handleUpdateDownloaded(info: UpdateDownloadedEvent): void {
+  pendingUpdate = info
+  broadcastUpdateAvailable(info)
+  hooks.showWindow?.()
 }
+
+ipcMain.on('install-update', () => {
+  if (!pendingUpdate) return
+  try {
+    installDownloadedUpdate(pendingUpdate)
+  } catch (err) {
+    console.error('Failed to install update:', err)
+    dialog.showErrorBox(
+      'Update Failed',
+      'GitBar could not install the update automatically. Download the latest DMG from GitHub Releases instead.'
+    )
+  }
+})
+
+ipcMain.handle('get-pending-update', () => {
+  return pendingUpdate ? { version: pendingUpdate.version } : null
+})
 
 export function setupAutoUpdater(nextHooks: UpdaterHooks = {}): void {
   if (isDev()) return
@@ -74,7 +84,7 @@ export function setupAutoUpdater(nextHooks: UpdaterHooks = {}): void {
   })
 
   autoUpdater.on('update-downloaded', (info) => {
-    promptToInstallUpdate(info)
+    handleUpdateDownloaded(info)
   })
 
   setTimeout(() => {
@@ -96,18 +106,19 @@ export async function checkForUpdatesManually(): Promise<void> {
     return
   }
 
+  if (pendingUpdate) {
+    broadcastUpdateAvailable(pendingUpdate)
+    hooks.showWindow?.()
+    return
+  }
+
   try {
     const result = await autoUpdater.checkForUpdates()
     const updateVersion = result?.updateInfo?.version
     const currentVersion = String(autoUpdater.currentVersion)
 
     if (updateVersion && updateVersion !== currentVersion) {
-      await dialog.showMessageBox({
-        type: 'info',
-        title: 'Update Available',
-        message: `GitBar ${updateVersion} is downloading.`,
-        detail: 'You will be prompted to restart when the download completes.'
-      })
+      hooks.showWindow?.()
       return
     }
 

@@ -2,6 +2,9 @@ import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, Notificati
 import path from 'path'
 import fs from 'fs'
 import { setupAutoUpdater, checkForUpdatesManually } from './updater'
+import { initAnalytics, track } from './analytics'
+
+initAnalytics()
 
 const STORE_PATH = path.join(app.getPath('userData'), 'gitbar-data.json')
 
@@ -147,8 +150,11 @@ app.whenReady().then(() => {
       tray = null
       mainWindow?.destroy()
       mainWindow = null
-    }
+    },
+    showWindow
   })
+
+  track('app_started')
 })
 
 app.on('window-all-closed', () => {

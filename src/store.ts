@@ -99,6 +99,11 @@ export const useStore = create<AppState>((set, get) => ({
   view: loadFromStorage<string | null>('gitbar_token', null) ? 'main' : 'setup',
   activeTab: 'my-prs',
 
+  pendingUpdateVersion: null,
+
+  setPendingUpdate: (version: string | null) => set({ pendingUpdateVersion: version }),
+  installPendingUpdate: () => window.gitbar?.installUpdate(),
+
   setToken: async (token: string) => {
     set({ isValidating: true })
     const user = await github.validateToken(token)

@@ -10,7 +10,8 @@ A macOS menu bar app that cuts through GitHub notification noise by surfacing on
 - **1-minute polling** — configurable interval from 15s to 5min
 - **Click to open** — any PR or notification opens the thread in your browser
 - **Custom filters** — create pinned filters by label, repo, or author
-- **Fully local** — no backend, all data stored in localStorage
+- **Fully local** — your GitHub token, settings, and PR data stay on your machine
+- **Anonymous usage analytics** — counts launches and update adoption (no PII; see [Privacy](#privacy))
 
 ## Setup
 
@@ -107,6 +108,23 @@ npm run electron:publish
 - **React + Vite** — renderer process with Zustand state management
 - **GitHub REST API v3** — fetches notifications, search/issues for PR data
 - **localStorage** — persists token, preferences, read state, custom filters
+
+## Privacy
+
+GitBar sends a small amount of anonymous usage data to [Aptabase](https://aptabase.com) so we can see how many people use the app and which versions are in use. This is what's collected:
+
+- App version
+- Operating system and version
+- Approximate country (derived from IP at request time, then discarded)
+- A handful of events: app start, update applied
+
+What's **not** collected:
+
+- Your GitHub token, username, PR data, or any identifying info
+- IP address (Aptabase does not store it)
+- Any cookies, device IDs, or fingerprints
+
+If you'd rather not contribute analytics, you can build GitBar from source — analytics only runs in production builds with a configured app key.
 
 ## License
 

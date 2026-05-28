@@ -8,5 +8,14 @@ contextBridge.exposeInMainWorld('gitbar', {
   hideWindow: () => ipcRenderer.send('hide-window'),
   storeGet: (key: string) => ipcRenderer.invoke('store-get', key),
   storeSet: (key: string, value: any) => ipcRenderer.invoke('store-set', key, value),
-  storeRemove: (key: string) => ipcRenderer.invoke('store-remove', key)
+  storeRemove: (key: string) => ipcRenderer.invoke('store-remove', key),
+  installUpdate: () => ipcRenderer.send('install-update'),
+  getPendingUpdate: () => ipcRenderer.invoke('get-pending-update'),
+  onUpdateAvailable: (callback: (info: { version: string }) => void) => {
+    const listener = (_event: unknown, info: { version: string }) => callback(info)
+    ipcRenderer.on('update-available', listener)
+    return () => {
+      ipcRenderer.off('update-available', listener)
+    }
+  }
 })

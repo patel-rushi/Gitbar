@@ -246,6 +246,57 @@ html, body, #root {
   height: 16px;
 }
 
+/* Update banner */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.update-banner:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.update-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  flex-shrink: 0;
+}
+
+.update-banner:hover .update-banner-dot {
+  background: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+}
+
+.update-banner-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.update-banner-cta {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  opacity: 0.9;
+}
+
 /* Tabs */
 .tabs {
   display: flex;

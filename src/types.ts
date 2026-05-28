@@ -115,8 +115,12 @@ export interface AppState {
   view: 'setup' | 'main' | 'settings'
   activeTab: string
 
+  pendingUpdateVersion: string | null
+
   setToken: (token: string) => Promise<boolean>
   clearToken: () => void
+  setPendingUpdate: (version: string | null) => void
+  installPendingUpdate: () => void
   setView: (view: 'setup' | 'main' | 'settings') => void
   setActiveTab: (tab: string) => void
   markEventRead: (id: string) => void
@@ -142,6 +146,9 @@ declare global {
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>
       storeRemove: (key: string) => Promise<void>
+      installUpdate: () => void
+      getPendingUpdate: () => Promise<{ version: string } | null>
+      onUpdateAvailable: (callback: (info: { version: string }) => void) => () => void
     }
   }
 }

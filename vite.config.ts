@@ -17,7 +17,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-updater']
+              external: ['electron', 'electron-updater', '@aptabase/electron', '@aptabase/electron/main', '@aptabase/electron/renderer']
             }
           }
         }
@@ -31,7 +31,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-updater']
+              external: ['electron', 'electron-updater', '@aptabase/electron', '@aptabase/electron/main', '@aptabase/electron/renderer']
             }
           }
         }
