@@ -347,6 +347,63 @@ export async function enrichWithReviewState(
   return results.map((r, i) => r.status === 'fulfilled' ? r.value : prs[i])
 }
 
+async function fetchIncomingReviewSummary(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  authorLogin: string
+): Promise<{ state: ReviewState; approvedBy: string[] }> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}/reviews?per_page=100`,
+      { headers: headers(token) }
+    )
+    if (!res.ok) return { state: null, approvedBy: [] }
+    const reviews: any[] = await res.json()
+
+    const latestByReviewer = new Map<string, { state: string; submittedAt: string }>()
+    for (const r of reviews) {
+      const login = r.user?.login
+      if (!login || login === authorLogin) continue
+      const state = r.state as string
+      // Skip pure COMMENTED entries that come after an actionable review on the same reviewer
+      const existing = latestByReviewer.get(login)
+      if (state === 'APPROVED' || state === 'CHANGES_REQUESTED' || state === 'DISMISSED') {
+        latestByReviewer.set(login, { state, submittedAt: r.submitted_at })
+      } else if (!existing && state === 'COMMENTED') {
+        latestByReviewer.set(login, { state, submittedAt: r.submitted_at })
+      }
+    }
+
+    const states = Array.from(latestByReviewer.entries())
+    const approvedBy = states.filter(([, v]) => v.state === 'APPROVED').map(([login]) => login)
+    const changesRequested = states.some(([, v]) => v.state === 'CHANGES_REQUESTED')
+
+    if (changesRequested) return { state: 'CHANGES_REQUESTED', approvedBy }
+    if (approvedBy.length > 0) return { state: 'APPROVED', approvedBy }
+    if (states.some(([, v]) => v.state === 'COMMENTED')) return { state: 'COMMENTED', approvedBy }
+    return { state: null, approvedBy }
+  } catch {
+    return { state: null, approvedBy: [] }
+  }
+}
+
+export async function enrichWithIncomingReviewState(
+  token: string,
+  prs: PullRequest[]
+): Promise<PullRequest[]> {
+  const results = await Promise.allSettled(
+    prs.map(async pr => {
+      const [owner, repo] = pr.repo_full_name.split('/')
+      if (!owner || !repo) return pr
+      const summary = await fetchIncomingReviewSummary(token, owner, repo, pr.number, pr.user.login)
+      return { ...pr, incomingReviewState: summary.state, approvedBy: summary.approvedBy }
+    })
+  )
+  return results.map((r, i) => r.status === 'fulfilled' ? r.value : prs[i])
+}
+
 import type { CommentActivity } from './types'
 
 export async function fetchCommentsOnMyPRs(

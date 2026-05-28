@@ -8,13 +8,14 @@ interface PRListProps {
   emptyTitle?: string
   emptyText?: string
   showReviewState?: boolean
+  showIncomingReviewState?: boolean
   commentSource?: 'myPRComments' | 'reviewReplies'
   onCommentBadgeClick?: () => void
   allowIgnore?: boolean
   timeSource?: 'updated' | 'created'
 }
 
-export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, commentSource, onCommentBadgeClick, allowIgnore, timeSource }: PRListProps) {
+export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, commentSource, onCommentBadgeClick, allowIgnore, timeSource }: PRListProps) {
   const store = useStore()
   const { ignoredPRs, ignorePR } = store
 
@@ -49,6 +50,7 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           key={pr.id}
           pr={pr}
           showReviewState={showReviewState}
+          showIncomingReviewState={showIncomingReviewState}
           newCommentCount={commentCounts.get(pr.number)}
           onCommentBadgeClick={onCommentBadgeClick}
           onIgnore={allowIgnore ? () => ignorePR(`${pr.repo_full_name}#${pr.number}`) : undefined}

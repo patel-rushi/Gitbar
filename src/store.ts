@@ -272,12 +272,16 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       // Core queries (always run - 4 search calls)
-      const [myPRs, draftPRs, rawReviewedPRs, rawNotifications] = await Promise.all([
+      const [rawMyPRs, draftPRs, rawReviewedPRs, rawNotifications] = await Promise.all([
         github.fetchMyPRs(token, username),
         github.fetchDraftPRs(token, username),
         github.fetchReviewedPRs(token, username),
         github.fetchNotifications(token, get().lastPollAt || undefined)
       ])
+
+      // Incoming review state for top My PRs (capped to save API calls)
+      const enrichedMyPRs = await github.enrichWithIncomingReviewState(token, rawMyPRs.slice(0, 8))
+      const myPRs = [...enrichedMyPRs, ...rawMyPRs.slice(8)]
 
       // Review requested (2-3 search calls + teammate PRs cached for 5 min)
       const [reviewRequestedPRs, teammatePRs] = await Promise.all([

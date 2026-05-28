@@ -55,7 +55,7 @@ export function MainPanel() {
               onChange={id => setMyPRsSegment(id as 'prs' | 'comments')}
             />
             {myPRsSegment === 'prs'
-              ? <PRList prs={myPRs} emptyTitle="No open PRs" emptyText="You don't have any open pull requests." commentSource="myPRComments" onCommentBadgeClick={() => setMyPRsSegment('comments')} />
+              ? <PRList prs={myPRs} emptyTitle="No open PRs" emptyText="You don't have any open pull requests." commentSource="myPRComments" onCommentBadgeClick={() => setMyPRsSegment('comments')} showIncomingReviewState />
               : <CommentsList items={myPRComments} emptyTitle="No comments" emptyText="Comments on your PRs will appear here." />
             }
           </>

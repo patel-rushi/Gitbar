@@ -24,6 +24,8 @@ export interface PullRequest {
   comments: number
   review_comments: number
   myReviewState?: ReviewState
+  incomingReviewState?: ReviewState
+  approvedBy?: string[]
 }
 
 export interface NotificationEvent {
