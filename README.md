@@ -45,9 +45,24 @@ GitBar ships via **GitHub Releases** with in-app auto-updates (`electron-updater
 
 ### First-time install
 
-1. Download `GitBar-x.y.z.dmg` from [GitHub Releases](https://github.com/patel-rushi/GitBar/releases)
+**Homebrew (recommended)** — no Gatekeeper warnings, auto-strips quarantine:
+
+```bash
+brew install --cask patel-rushi/gitbar/gitbar
+```
+
+Update later with `brew upgrade --cask gitbar`.
+
+**Manual DMG:**
+
+1. Download `GitBar-x.y.z.dmg` from [GitHub Releases](https://github.com/patel-rushi/Gitbar/releases)
 2. Open the DMG and drag GitBar to Applications
 3. Launch GitBar from Applications
+4. If macOS says the app is "damaged" (unsigned build), either right-click GitBar → **Open** → **Open**, or run:
+
+```bash
+xattr -cr /Applications/GitBar.app
+```
 
 ### Publishing a new version
 
@@ -64,7 +79,11 @@ git push origin v1.0.1
    - `GitBar-x.y.z.dmg` — for new installs
    - `GitBar-x.y.z-mac.zip` + `latest-mac.yml` — for in-app updates
 
-Installed apps check for updates on launch and every 4 hours. Users can also right-click the tray icon → **Check for Updates…**
+Installed apps check for updates on launch and daily, and whenever the panel is opened. Users can also right-click the tray icon → **Check for Updates…**
+
+### Homebrew tap
+
+The cask lives in [`patel-rushi/homebrew-gitbar`](https://github.com/patel-rushi/homebrew-gitbar). When a release is published, CI bumps the cask's `version` and `sha256` automatically — provided a `HOMEBREW_TAP_TOKEN` secret (a PAT with write access to the tap repo) is configured. Without it, update the cask manually.
 
 ### Code signing (recommended)
 
