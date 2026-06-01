@@ -23,7 +23,7 @@ brew install --cask patel-rushi/gitbar/gitbar
 | ![GitBar My PRs tab showing open pull requests](docs/images/my-prs.png) | ![GitBar Reviewed by Me tab with labels](docs/images/reviewed-by-me.png) |
 | **My PRs** - your open pull requests and incoming comments | **Reviewed by Me** - PRs you've reviewed, with labels and replies |
 | ![GitBar custom filter builder](docs/images/custom-filter.png) | ![GitBar Review Requested team filter](docs/images/review-requested-filter.png) |
-| **Custom filters** — by repository, label, author, or any GitHub query | **Review Requested** — scope to specific teammates or teams |
+| **Custom filters** - by repository, label, author, or any GitHub query | **Review Requested** - scope to specific teammates or teams |
 
 ## Install
 
@@ -67,11 +67,11 @@ Set an expiration (or **No expiration**), then scroll down and click **Generate 
 
 If your repositories belong to an organization that enforces **SAML single sign-on**, the token won't see them until you authorize it. On the token list, find your new token, click **Configure SSO** (or **Enable SSO**), and **Authorize** each organization you need.
 
-> Skipping this step is the most common reason GitBar shows no PRs for a work org — the token is valid, but GitHub hides SSO-protected data until it's authorized.
+> Skipping this step is the most common reason GitBar shows no PRs for a work org - the token is valid, but GitHub hides SSO-protected data until it's authorized.
 
 ### 3. Copy and paste it into GitBar
 
-Copy the token value — it starts with `ghp_` and you won't be able to see it again. Launch GitBar from your menu bar, paste the token, and you're done — it starts tracking your pull requests and notifications immediately.
+Copy the token value - it starts with `ghp_` and you won't be able to see it again. Launch GitBar from your menu bar, paste the token, and you're done, it starts tracking your pull requests and notifications immediately.
 
 From **Settings** you can toggle notification types, change the polling interval, reorder or hide tabs, and create custom pinned filters.
 
