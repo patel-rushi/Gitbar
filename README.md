@@ -1,149 +1,89 @@
-# GitBar
+# GitBar — GitHub Notifications & Pull Request Inbox for the macOS Menu Bar
 
-A macOS menu bar app that cuts through GitHub notification noise by surfacing only the signals that matter: replies on your PRs, replies to your comments, and @mentions.
-
-## Features
-
-- **Menu bar tray app** — lives quietly in the macOS top bar with badge counter
-- **Smart notifications** — only fires for replies to your PRs, replies to your comments, @mentions, and review requests
-- **Tabbed PR inbox** — My PRs, Reviewed by Me, Review Requested, I Commented, and custom Pinned Filters
-- **1-minute polling** — configurable interval from 15s to 5min
-- **Click to open** — any PR or notification opens the thread in your browser
-- **Custom filters** — create pinned filters by label, repo, or author
-- **Fully local** — your GitHub token, settings, and PR data stay on your machine
-- **Anonymous usage analytics** — counts launches and update adoption (no PII; see [Privacy](#privacy))
-
-## Setup
-
-### Prerequisites
-
-- macOS
-- Node.js 18+ (use `nvm use` to activate via the included `.nvmrc`)
-
-### Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run in development mode (Vite dev server + Electron)
-npm run electron:dev
-```
-
-### Build DMG
-
-```bash
-# Build production app and package as .dmg
-npm run electron:build
-```
-
-The DMG installer will be output to the `release/` directory.
-
-## Releasing
-
-GitBar ships via **GitHub Releases** with in-app auto-updates (`electron-updater`).
-
-### First-time install
-
-**Homebrew (recommended)** — no Gatekeeper warnings, auto-strips quarantine:
+GitBar is a free, open-source **macOS menu bar app** that cuts through GitHub notification noise. It surfaces only what matters — replies on your **pull requests**, replies to your comments, **@mentions**, and **review requests** — so you can stay on top of **code reviews** without living in the GitHub web UI.
 
 ```bash
 brew install --cask patel-rushi/gitbar/gitbar
 ```
 
-Update later with `brew upgrade --cask gitbar`.
+![GitBar — GitHub pull request inbox in the macOS menu bar](docs/images/app-screenshot.png)
 
-**Manual DMG:**
+## Features
 
-1. Download `GitBar-x.y.z.dmg` from [GitHub Releases](https://github.com/patel-rushi/Gitbar/releases)
-2. Open the DMG and drag GitBar to Applications
-3. Launch GitBar from Applications
-4. If macOS says the app is "damaged" (unsigned build), either right-click GitBar → **Open** → **Open**, or run:
+- **Lives in your menu bar** — a quiet tray icon with an unread badge counter
+- **Smart GitHub notifications** — alerts only for replies to your PRs, replies to your comments, @mentions, and review requests
+- **Tabbed pull request inbox** — My PRs, Reviewed by Me, Review Requested, I Commented, and custom filters
+- **Custom filters** — pin views by repository, label, author, or any GitHub search query
+- **Fast polling** — configurable from 15 seconds to 5 minutes
+- **Click to open** — jump straight to any PR or thread in your browser
+- **Private by design** — your GitHub token and data never leave your Mac
+
+## Screenshots
+
+| | |
+|:---:|:---:|
+| ![GitBar My PRs tab showing open pull requests](docs/images/my-prs.png) | ![GitBar Reviewed by Me tab with labels](docs/images/reviewed-by-me.png) |
+| **My PRs** — your open pull requests and incoming comments | **Reviewed by Me** — PRs you've reviewed, with labels and replies |
+| ![GitBar custom filter builder](docs/images/custom-filter.png) | ![GitBar Review Requested team filter](docs/images/review-requested-filter.png) |
+| **Custom filters** — by repository, label, author, or any GitHub query | **Review Requested** — scope to specific teammates or teams |
+
+## Install
+
+### Homebrew (recommended)
+
+```bash
+brew install --cask patel-rushi/gitbar/gitbar
+```
+
+GitBar installs into your Applications folder with no Gatekeeper warnings.
+
+### Manual download
+
+1. Download the latest `.dmg` from the [releases page](https://github.com/patel-rushi/Gitbar/releases/latest).
+2. Open the DMG and drag **GitBar** into **Applications**.
+3. The manual build is unsigned, so macOS Gatekeeper quarantines it and may say the app is *"damaged"* or *"can't be opened."* Clear the quarantine flag, then launch:
 
 ```bash
 xattr -cr /Applications/GitBar.app
 ```
 
-### Publishing a new version
+`xattr -cr` removes the `com.apple.quarantine` attribute macOS attaches to anything downloaded from the internet. It's only needed because the manual build isn't code-signed — Homebrew does this step for you automatically, which is why it's the recommended install.
 
-1. Bump `"version"` in `package.json` (e.g. `1.0.0` → `1.0.1`)
-2. Commit and push
-3. Create and push a tag:
+## Getting started
 
-```bash
-git tag v1.0.1
-git push origin v1.0.1
-```
+GitBar needs a GitHub **personal access token (classic)** to read your notifications and pull requests.
 
-4. GitHub Actions builds the app and publishes a release with:
-   - `GitBar-x.y.z.dmg` — for new installs
-   - `GitBar-x.y.z-mac.zip` + `latest-mac.yml` — for in-app updates
+### 1. Create the token
 
-Installed apps check for updates on launch and daily, and whenever the panel is opened. Users can also right-click the tray icon → **Check for Updates…**
+Open the pre-filled token page — [**Create a token for GitBar**](https://github.com/settings/tokens/new?description=GitBar&scopes=repo,notifications,read:org). The required scopes are already checked for you:
 
-### Homebrew tap
-
-The cask lives in [`patel-rushi/homebrew-gitbar`](https://github.com/patel-rushi/homebrew-gitbar). When a release is published, CI bumps the cask's `version` and `sha256` automatically — provided a `HOMEBREW_TAP_TOKEN` secret (a PAT with write access to the tap repo) is configured. Without it, update the cask manually.
-
-### Code signing (recommended)
-
-For smooth installs and reliable auto-updates on macOS, add these GitHub repository secrets before releasing:
-
-| Secret | Description |
+| Scope | Why GitBar needs it |
 |---|---|
-| `CSC_LINK` | Base64-encoded `.p12` Developer ID certificate |
-| `CSC_KEY_PASSWORD` | Certificate password |
-| `APPLE_ID` | Apple ID email |
-| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password for notarization |
-| `APPLE_TEAM_ID` | Apple Developer Team ID |
+| `repo` | Read your pull requests and review threads (including private repos) |
+| `notifications` | Fetch your GitHub notifications |
+| `read:org` | List org repositories and teammates for custom filters |
 
-Without these secrets, CI still builds unsigned artifacts (users will see Gatekeeper warnings).
+Set an expiration (or **No expiration**), then scroll down and click **Generate token**.
 
-### Local publish (optional)
+### 2. Authorize SSO (required for organizations using SAML)
 
-```bash
-export GH_TOKEN=ghp_...
-npm run electron:publish
-```
+If your repositories belong to an organization that enforces **SAML single sign-on**, the token won't see them until you authorize it. On the token list, find your new token, click **Configure SSO** (or **Enable SSO**), and **Authorize** each organization you need.
 
-## Configuration
+> Skipping this step is the most common reason GitBar shows no PRs for a work org — the token is valid, but GitHub hides SSO-protected data until it's authorized.
 
-1. Launch GitBar
-2. Enter your GitHub Personal Access Token (PAT)
-   - Create one at [github.com/settings/tokens](https://github.com/settings/tokens?type=beta)
-   - Required scopes: `notifications`, `repo`
-3. GitBar starts polling immediately
+### 3. Copy and paste it into GitBar
 
-### Settings
+Copy the token value — it starts with `ghp_` and you won't be able to see it again. Launch GitBar from your menu bar, paste the token, and you're done — it starts tracking your pull requests and notifications immediately.
 
-- Toggle notification types (replies, mentions, review requests)
-- Adjust polling interval (15s–300s)
-- Customize tabs (rename, reorder, hide)
-- Create custom pinned filters
-
-## Architecture
-
-- **Electron** — main process manages tray, window positioning, native notifications
-- **React + Vite** — renderer process with Zustand state management
-- **GitHub REST API v3** — fetches notifications, search/issues for PR data
-- **localStorage** — persists token, preferences, read state, custom filters
+From **Settings** you can toggle notification types, change the polling interval, reorder or hide tabs, and create custom pinned filters.
 
 ## Privacy
 
-GitBar sends a small amount of anonymous usage data to [Aptabase](https://aptabase.com) so we can see how many people use the app and which versions are in use. This is what's collected:
+GitBar is fully local — your GitHub token, settings, and PR data stay on your machine. The app sends only anonymous, non-identifying usage counts (app version, OS, and app-start/update events) to [Aptabase](https://aptabase.com). It never collects your token, username, PR content, IP address, or any device identifiers. Build from source to opt out entirely.
 
-- App version
-- Operating system and version
-- Approximate country (derived from IP at request time, then discarded)
-- A handful of events: app start, update applied
+## Contributing
 
-What's **not** collected:
-
-- Your GitHub token, username, PR data, or any identifying info
-- IP address (Aptabase does not store it)
-- Any cookies, device IDs, or fingerprints
-
-If you'd rather not contribute analytics, you can build GitBar from source — analytics only runs in production builds with a configured app key.
+GitBar is built with Electron, React, and the GitHub REST API. To run it locally or cut a release, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
