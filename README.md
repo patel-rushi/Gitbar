@@ -1,6 +1,6 @@
 # GitBar: GitHub Notifications & Pull Request Inbox for the macOS Menu Bar
 
-GitBar is a free, open-source **macOS menu bar app** that cuts through GitHub notification noise. It surfaces only what matters: replies on your **pull requests**, replies to your comments, **@mentions**, and **review requests** — so you can stay on top of **code reviews** without living in the GitHub web UI.
+GitBar is a free, open-source **macOS menu bar app** that cuts through GitHub notification noise. It surfaces only what matters: replies on your **pull requests**, replies to your comments, **@mentions**, and **review requests**, so you can stay on top of **code reviews** without living in the GitHub web UI.
 
 ```bash
 brew install --cask patel-rushi/gitbar/gitbar
