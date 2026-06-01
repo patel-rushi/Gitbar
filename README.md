@@ -10,11 +10,11 @@ brew install --cask patel-rushi/gitbar/gitbar
 
 ## Features
 
-- **Lives in your menu bar** — a quiet tray icon with an unread badge counter
-- **GitHub notifications** — alerts only for replies to your PRs, replies to your comments, @mentions, and review requests
-- **Tabbed pull request inbox** — My PRs, Reviewed by Me, Review Requested, I Commented, and custom filters
-- **Custom filters** — pin views by repository, label, author, or any GitHub search query
-- **Click to open** — jump straight to any PR or thread in your browser
+- **Lives in your menu bar**: a quiet tray icon with an unread badge counter
+- **GitHub notifications**: alerts only for replies to your PRs, replies to your comments, @mentions, and review requests
+- **Tabbed pull request inbox**: My PRs, Reviewed by Me, Review Requested, I Commented, and custom filters
+- **Custom filters**: pin views by repository, label, author, or any GitHub search query
+- **Click to open**: jump straight to any PR or thread in your browser
 
 ## Screenshots
 
