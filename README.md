@@ -85,4 +85,4 @@ GitBar is built with Electron, React, and the GitHub REST API. To run it locally
 
 ## License
 
-MIT
+[MIT](LICENSE) © Rushi Patel
