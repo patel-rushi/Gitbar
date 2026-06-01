@@ -79,7 +79,7 @@ From **Settings** you can toggle notification types, change the polling interval
 
 ## Privacy
 
-GitBar is fully local — your GitHub token, settings, and PR data stay on your machine. The app sends only anonymous, non-identifying usage counts (app version, OS, and app-start/update events) to [Aptabase](https://aptabase.com). It never collects your token, username, PR content, IP address, or any device identifiers. Build from source to opt out entirely.
+GitBar is fully local — your GitHub token, settings, and PR data stay on your machine. It never collects your token, username, PR content, IP address, or any device identifiers. Build from source to opt out entirely.
 
 ## Contributing
 
