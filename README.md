@@ -1,6 +1,6 @@
-# GitBar — GitHub Notifications & Pull Request Inbox for the macOS Menu Bar
+# GitBar: GitHub Notifications & Pull Request Inbox for the macOS Menu Bar
 
-GitBar is a free, open-source **macOS menu bar app** that cuts through GitHub notification noise. It surfaces only what matters — replies on your **pull requests**, replies to your comments, **@mentions**, and **review requests** — so you can stay on top of **code reviews** without living in the GitHub web UI.
+GitBar is a free, open-source **macOS menu bar app** that cuts through GitHub notification noise. It surfaces only what matters: replies on your **pull requests**, replies to your comments, **@mentions**, and **review requests** — so you can stay on top of **code reviews** without living in the GitHub web UI.
 
 ```bash
 brew install --cask patel-rushi/gitbar/gitbar
@@ -11,12 +11,10 @@ brew install --cask patel-rushi/gitbar/gitbar
 ## Features
 
 - **Lives in your menu bar** — a quiet tray icon with an unread badge counter
-- **Smart GitHub notifications** — alerts only for replies to your PRs, replies to your comments, @mentions, and review requests
+- **GitHub notifications** — alerts only for replies to your PRs, replies to your comments, @mentions, and review requests
 - **Tabbed pull request inbox** — My PRs, Reviewed by Me, Review Requested, I Commented, and custom filters
 - **Custom filters** — pin views by repository, label, author, or any GitHub search query
-- **Fast polling** — configurable from 15 seconds to 5 minutes
 - **Click to open** — jump straight to any PR or thread in your browser
-- **Private by design** — your GitHub token and data never leave your Mac
 
 ## Screenshots
 
@@ -79,7 +77,7 @@ From **Settings** you can toggle notification types, change the polling interval
 
 ## Privacy
 
-GitBar is fully local — your GitHub token, settings, and PR data stay on your machine. It never collects your token, username, PR content, IP address, or any device identifiers. Build from source to opt out entirely.
+GitBar is fully local, your GitHub token, settings, and PR data stay on your machine. It never collects your token, username, PR content, IP address, or any device identifiers. Build from source to opt out entirely.
 
 ## Contributing
 
