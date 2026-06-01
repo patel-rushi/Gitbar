@@ -30,10 +30,25 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run electron:build -- --publish never
 
+      - name: Extract release notes
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES_FILE="$(mktemp)"
+          awk -v hdr="## v${VERSION}" '
+            $0 == hdr { grab = 1; next }
+            grab && /^## / { exit }
+            grab { print }
+          ' CHANGELOG.md | sed '/./,$!d' > "$NOTES_FILE"
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "Maintenance release." > "$NOTES_FILE"
+          fi
+          echo "path=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: ${{ steps.notes.outputs.path }}
           files: |
             release/*.dmg
             release/*.zip
