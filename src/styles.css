@@ -247,27 +247,23 @@ html, body, #root {
 }
 
 /* Update banner */
+.update-banner-wrap {
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  overflow: hidden;
+}
+
 .update-banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: calc(100% - 24px);
-  margin: 8px 12px 0;
   padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--accent);
-  background: var(--accent-dim);
   color: var(--text-primary);
   font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s;
   text-align: left;
-}
-
-.update-banner:hover {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
 }
 
 .update-banner-dot {
@@ -279,14 +275,24 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.update-banner:hover .update-banner-dot {
-  background: white;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
-}
-
 .update-banner-text {
   flex: 1;
   font-weight: 500;
+}
+
+.update-banner-link {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.update-banner-link:hover {
+  text-decoration: underline;
 }
 
 .update-banner-cta {
@@ -294,7 +300,66 @@ html, body, #root {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  opacity: 0.9;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.update-banner-cta:hover {
+  opacity: 0.85;
+}
+
+.update-banner-notes {
+  border-top: 1px solid var(--accent);
+  padding: 8px 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.update-banner-notes ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.update-banner-notes li {
+  margin: 2px 0;
+  line-height: 1.45;
+  padding-left: 12px;
+  position: relative;
+}
+
+.update-banner-notes li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+
+.update-banner-notes-heading {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 8px 0 2px !important;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-left: 0 !important;
+}
+
+.update-banner-notes-heading::before {
+  content: none !important;
+}
+
+.update-banner-empty {
+  font-style: italic;
+  opacity: 0.7;
 }
 
 /* Tabs */

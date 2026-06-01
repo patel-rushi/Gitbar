@@ -745,18 +745,27 @@ export async function fetchResolvedThreadMap(
 
 export async function fetchFilteredPRs(
   token: string,
-  filter: { labels?: string[]; repos?: string[]; authors?: string[] }
+  filter: { labels?: string[]; repos?: string[]; authors?: string[]; query?: string }
 ): Promise<PullRequest[]> {
-  const parts = ['is:pr', 'is:open']
+  const raw = (filter.query || '').trim()
+  const hasType = /\bis:(pr|issue)\b/i.test(raw)
+  const hasState = /(\bis:(open|closed|merged)\b|\bstate:)/i.test(raw)
 
-  if (filter.labels?.length) {
-    filter.labels.forEach(l => parts.push(`label:"${l}"`))
-  }
+  const parts: string[] = []
+  if (!hasType) parts.push('is:pr')
+  if (!hasState) parts.push('is:open')
+
   if (filter.repos?.length) {
     filter.repos.forEach(r => parts.push(`repo:${r}`))
   }
+  if (filter.labels?.length) {
+    filter.labels.forEach(l => parts.push(`label:"${l}"`))
+  }
   if (filter.authors?.length) {
     filter.authors.forEach(a => parts.push(`author:${a}`))
+  }
+  if (raw) {
+    parts.push(raw)
   }
 
   const q = encodeURIComponent(parts.join(' '))
@@ -767,4 +776,24 @@ export async function fetchFilteredPRs(
   await checkResponse(res)
   const data = await res.json()
   return (data.items || []).map(mapSearchItem)
+}
+
+const RELEASE_REPO = 'patel-rushi/Gitbar'
+
+export async function fetchReleaseNotes(
+  token: string,
+  version: string
+): Promise<string | null> {
+  const tag = version.startsWith('v') ? version : `v${version}`
+  try {
+    const res = await fetch(
+      `${API_BASE}/repos/${RELEASE_REPO}/releases/tags/${tag}`,
+      { headers: token ? headers(token) : { Accept: 'application/vnd.github.v3+json' } }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return typeof data.body === 'string' ? data.body : null
+  } catch {
+    return null
+  }
 }

@@ -34,7 +34,8 @@ export function PinnedFilters() {
     name: '',
     labels: [],
     repos: [],
-    authors: []
+    authors: [],
+    query: ''
   })
 
   const [orgs, setOrgs] = useState<string[]>([])
@@ -75,7 +76,7 @@ export function PinnedFilters() {
     setFilters(updated)
     saveFilters(updated)
     setEditing(false)
-    setDraft({ name: '', labels: [], repos: [], authors: [] })
+    setDraft({ name: '', labels: [], repos: [], authors: [], query: '' })
     setActiveFilter(newFilter.id)
   }
 
@@ -156,21 +157,21 @@ export function PinnedFilters() {
             />
           </div>
           <div className="filter-field">
-            <label>Labels</label>
-            <AutocompleteInput
-              value={draft.labels}
-              onChange={labels => setDraft({ ...draft, labels })}
-              fetchSuggestions={fetchLabelSuggestions}
-              placeholder="Search labels…"
-            />
-          </div>
-          <div className="filter-field">
             <label>Repositories</label>
             <AutocompleteInput
               value={draft.repos}
               onChange={repos => setDraft({ ...draft, repos })}
               fetchSuggestions={fetchRepoSuggestions}
               placeholder="Search repos…"
+            />
+          </div>
+          <div className="filter-field">
+            <label>Labels</label>
+            <AutocompleteInput
+              value={draft.labels}
+              onChange={labels => setDraft({ ...draft, labels })}
+              fetchSuggestions={fetchLabelSuggestions}
+              placeholder="Search labels…"
             />
           </div>
           <div className="filter-field">
@@ -181,6 +182,21 @@ export function PinnedFilters() {
               fetchSuggestions={fetchAuthorSuggestions}
               placeholder="Search teammates…"
             />
+          </div>
+          <div className="filter-field">
+            <label>Advanced query <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(optional)</span></label>
+            <input
+              className="filter-input"
+              placeholder="e.g. draft:false -review:approved"
+              value={draft.query ?? ''}
+              onChange={e => setDraft({ ...draft, query: e.target.value })}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+            <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.4 }}>
+              GitHub search qualifiers, combined with the fields above. <code>is:pr is:open</code> are added automatically unless you set them here.
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="setup-btn" onClick={addFilter} disabled={!draft.name.trim()} style={{ flex: 1 }}>
@@ -248,9 +264,10 @@ export function PinnedFilters() {
               <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setActiveFilter(f.id)}>
                 <div className="pr-title">{f.name}</div>
                 <div className="pr-meta">
-                  {f.labels.length > 0 && <span>Labels: {f.labels.join(', ')}</span>}
                   {f.repos.length > 0 && <span>Repos: {f.repos.join(', ')}</span>}
+                  {f.labels.length > 0 && <span>Labels: {f.labels.join(', ')}</span>}
                   {f.authors.length > 0 && <span>Authors: {f.authors.join(', ')}</span>}
+                  {f.query?.trim() && <span>Query: {f.query.trim()}</span>}
                 </div>
               </div>
               <button className="icon-btn" onClick={() => removeFilter(f.id)} style={{ color: 'var(--red)' }}>

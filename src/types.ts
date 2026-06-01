@@ -55,6 +55,7 @@ export interface CustomFilter {
   labels: string[]
   repos: string[]
   authors: string[]
+  query?: string
   name: string
 }
 
