@@ -39,6 +39,13 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
         <InboxIcon />
         <div className="empty-state-title">{emptyTitle}</div>
         <div className="empty-state-text">{emptyText}</div>
+        <div className="empty-state-hint">
+          Missing PRs from a work org? Your token may need{' '}
+          <span className="setup-link" onClick={() => window.gitbar?.openExternal('https://github.com/settings/tokens')}>
+            SSO authorized
+          </span>
+          .
+        </div>
       </div>
     )
   }
