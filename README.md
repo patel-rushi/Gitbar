@@ -6,8 +6,6 @@ GitBar is a free, open-source **macOS menu bar app** that cuts through GitHub no
 brew install --cask patel-rushi/gitbar/gitbar
 ```
 
-![GitBar — GitHub pull request inbox in the macOS menu bar](docs/images/app-screenshot.png)
-
 ## Features
 
 - **Lives in your menu bar**: a quiet tray icon with an unread badge counter
