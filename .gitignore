@@ -4,3 +4,7 @@ dist-electron/
 release/
 .DS_Store
 *.log
+
+# App screenshots contain private repo/PR data; keep them out of the repo
+docs/images/
+deck/
