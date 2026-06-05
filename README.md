@@ -16,15 +16,6 @@ brew install --cask patel-rushi/gitbar/gitbar
 - **Custom filters**: pin views by repository, label, author, or any GitHub search query
 - **Click to open**: jump straight to any PR or thread in your browser
 
-## Screenshots
-
-| | |
-|:---:|:---:|
-| ![GitBar My PRs tab showing open pull requests](docs/images/my-prs.png) | ![GitBar Reviewed by Me tab with labels](docs/images/reviewed-by-me.png) |
-| **My PRs** - your open pull requests and incoming comments | **Reviewed by Me** - PRs you've reviewed, with labels and replies |
-| ![GitBar custom filter builder](docs/images/custom-filter.png) | ![GitBar Review Requested team filter](docs/images/review-requested-filter.png) |
-| **Custom filters** - by repository, label, author, or any GitHub query | **Review Requested** - scope to specific teammates or teams |
-
 ## Install
 
 ### Homebrew (recommended)
