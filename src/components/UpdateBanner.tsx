@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { fetchReleaseNotes } from '../github'
 
@@ -39,58 +39,68 @@ function parseNotes(body: string): NoteLine[] {
   return lines
 }
 
-export function UpdateBanner() {
+export function UpdatePill({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const { pendingUpdateVersion } = useStore()
+  if (!pendingUpdateVersion) return null
+  return (
+    <button
+      className={`update-pill${active ? ' active' : ''}`}
+      onClick={onClick}
+      title={`Update available · v${pendingUpdateVersion}`}
+    >
+      <span className="update-pill-dot" />
+      Update
+    </button>
+  )
+}
+
+export function UpdateInfo() {
   const { pendingUpdateVersion, installPendingUpdate, token } = useStore()
-  const [expanded, setExpanded] = useState(false)
   const [notes, setNotes] = useState<NoteLine[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!pendingUpdateVersion) return
+    let cancelled = false
+    setLoading(true)
+    fetchReleaseNotes(token || '', pendingUpdateVersion).then(body => {
+      if (cancelled) return
+      setNotes(body ? parseNotes(body) : [])
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [pendingUpdateVersion, token])
 
   if (!pendingUpdateVersion) return null
 
-  const toggle = async () => {
-    const next = !expanded
-    setExpanded(next)
-    if (next && notes === null && !loading) {
-      setLoading(true)
-      const body = await fetchReleaseNotes(token || '', pendingUpdateVersion)
-      setNotes(body ? parseNotes(body) : [])
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="update-banner-wrap">
-      <div className="update-banner">
-        <span className="update-banner-dot" />
-        <span className="update-banner-text">
-          Update available · v{pendingUpdateVersion}
-        </span>
-        <button className="update-banner-link" onClick={toggle}>
-          {expanded ? 'Hide' : "What's new"}
-        </button>
+    <div className="update-info">
+      <div className="update-info-header">
+        <div>
+          <div className="update-info-title">Update available</div>
+          <div className="update-info-version">v{pendingUpdateVersion}</div>
+        </div>
         <button className="update-banner-cta" onClick={installPendingUpdate}>
           Restart to update
         </button>
       </div>
-      {expanded && (
-        <div className="update-banner-notes">
-          {loading ? (
-            <div className="spinner" />
-          ) : notes && notes.length > 0 ? (
-            <ul>
-              {notes.map((line, i) =>
-                line.kind === 'heading' ? (
-                  <li key={i} className="update-banner-notes-heading">{line.text}</li>
-                ) : (
-                  <li key={i}>{line.text}</li>
-                )
-              )}
-            </ul>
-          ) : (
-            <div className="update-banner-empty">No release notes available for this version.</div>
-          )}
-        </div>
-      )}
+      <div className="update-info-notes">
+        {loading ? (
+          <div className="spinner" />
+        ) : notes && notes.length > 0 ? (
+          <ul>
+            {notes.map((line, i) =>
+              line.kind === 'heading' ? (
+                <li key={i} className="update-banner-notes-heading">{line.text}</li>
+              ) : (
+                <li key={i}>{line.text}</li>
+              )
+            )}
+          </ul>
+        ) : (
+          <div className="update-banner-empty">No release notes available for this version.</div>
+        )}
+      </div>
     </div>
   )
 }

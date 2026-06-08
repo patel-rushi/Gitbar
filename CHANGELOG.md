@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.1.9
+- Moved the update notice to a compact pill in the top bar; click it to see what's new right inside the app.
+
 ## v1.1.8
 - Redesigned the setup screen with a clearer, guided way to create a GitHub token, including screenshots you can click to enlarge.
 - Added a step for authorizing SAML SSO, the most common reason work PRs don't show up.

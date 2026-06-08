@@ -5,8 +5,6 @@ import { AutocompleteInput } from './AutocompleteInput'
 import type { TabConfig, AppSettings } from '../types'
 import { fetchUserTeams, fetchOrgTeams, fetchUserOrgs, fetchAllOrgTeamSlugs, fetchOrgMembers, type TeamInfo } from '../github'
 import { AppVersion } from './AppVersion'
-import { UpdateBanner } from './UpdateBanner'
-
 export function SettingsPanel() {
   const { settings, updateSettings, tabs, updateTabs, clearToken, clearBadge, setView, username, ignoredPRs, unignorePR } = useStore()
   const [activeSection, setActiveSection] = useState<'main' | 'tabs' | 'review-filter'>('main')
@@ -103,7 +101,6 @@ export function SettingsPanel() {
         </button>
         <span className="settings-title">Settings</span>
       </div>
-      <UpdateBanner />
       <div className="settings-panel">
         <div className="settings-section">
           <div className="settings-section-title">Notifications</div>

@@ -6,7 +6,7 @@ import { SegmentedToggle } from './SegmentedToggle'
 import { CommentsList } from './CommentsList'
 import { GearIconSimple, RefreshIcon, CheckIcon } from './Icons'
 import { AppVersion } from './AppVersion'
-import { UpdateBanner } from './UpdateBanner'
+import { UpdatePill, UpdateInfo } from './UpdateBanner'
 import { formatDistanceToNow } from 'date-fns'
 
 export function MainPanel() {
@@ -15,11 +15,18 @@ export function MainPanel() {
     myPRs, draftPRs, reviewedPRs, reviewRequestedPRs, squadActivityPRs,
     myPRComments, reviewReplies,
     events, badgeCount, markAllRead, pollError,
-    tabs, isPolling, lastPollAt, poll, startPolling
+    tabs, isPolling, lastPollAt, poll, startPolling,
+    pendingUpdateVersion
   } = useStore()
 
   const [myPRsSegment, setMyPRsSegment] = useState<'prs' | 'comments'>('prs')
   const [reviewedSegment, setReviewedSegment] = useState<'prs' | 'replies'>('prs')
+  const [showUpdateInfo, setShowUpdateInfo] = useState(false)
+
+  const selectTab = (id: string) => {
+    setShowUpdateInfo(false)
+    setActiveTab(id)
+  }
 
   useEffect(() => {
     startPolling()
@@ -113,6 +120,7 @@ export function MainPanel() {
           )}
         </div>
         <div className="header-actions">
+          <UpdatePill active={showUpdateInfo} onClick={() => setShowUpdateInfo(v => !v)} />
           {badgeCount > 0 && (
             <button className="icon-btn" onClick={markAllRead} title="Mark all read">
               <CheckIcon />
@@ -127,14 +135,12 @@ export function MainPanel() {
         </div>
       </div>
 
-      <UpdateBanner />
-
       <div className="tabs">
         {visibleTabs.map(tab => (
           <button
             key={tab.id}
-            className={`tab${activeTab === tab.id ? ' active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            className={`tab${!showUpdateInfo && activeTab === tab.id ? ' active' : ''}`}
+            onClick={() => selectTab(tab.id)}
           >
             {tab.label}
             {unreadByTab[tab.id] && <span className="tab-badge" />}
@@ -142,7 +148,7 @@ export function MainPanel() {
         ))}
       </div>
 
-      {renderContent()}
+      {showUpdateInfo && pendingUpdateVersion ? <UpdateInfo /> : renderContent()}
 
       <div className="footer">
         {pollError ? (

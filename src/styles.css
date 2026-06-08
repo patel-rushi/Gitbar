@@ -332,53 +332,68 @@ html, body, #root {
   height: 16px;
 }
 
-/* Update banner */
-.update-banner-wrap {
-  width: calc(100% - 24px);
-  margin: 8px 12px 0;
-  border-radius: 8px;
+/* Update pill (header) */
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
   border: 1px solid var(--accent);
   background: var(--accent-dim);
-  overflow: hidden;
-}
-
-.update-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
   color: var(--text-primary);
-  font-size: 12px;
-  text-align: left;
-}
-
-.update-banner-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
-  flex-shrink: 0;
-}
-
-.update-banner-text {
-  flex: 1;
-  font-weight: 500;
-}
-
-.update-banner-link {
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent);
-  background: transparent;
-  border: none;
   cursor: pointer;
-  padding: 2px 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.update-pill:hover,
+.update-pill.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.update-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
   flex-shrink: 0;
 }
 
-.update-banner-link:hover {
-  text-decoration: underline;
+.update-pill:hover .update-pill-dot,
+.update-pill.active .update-pill-dot {
+  background: white;
+}
+
+/* Update info panel (shown in the content area) */
+.update-info {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.update-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.update-info-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.update-info-version {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }
 
 .update-banner-cta {
@@ -390,7 +405,7 @@ html, body, #root {
   color: white;
   border: none;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 7px 12px;
   cursor: pointer;
   flex-shrink: 0;
   transition: opacity 0.15s;
@@ -400,29 +415,25 @@ html, body, #root {
   opacity: 0.85;
 }
 
-.update-banner-notes {
-  border-top: 1px solid var(--accent);
-  padding: 8px 12px;
-  max-height: 220px;
-  overflow-y: auto;
-  font-size: 12px;
+.update-info-notes {
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
-.update-banner-notes ul {
+.update-info-notes ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.update-banner-notes li {
-  margin: 2px 0;
-  line-height: 1.45;
-  padding-left: 12px;
+.update-info-notes li {
+  margin: 4px 0;
+  line-height: 1.5;
+  padding-left: 14px;
   position: relative;
 }
 
-.update-banner-notes li::before {
+.update-info-notes li::before {
   content: '•';
   position: absolute;
   left: 0;
@@ -432,8 +443,8 @@ html, body, #root {
 .update-banner-notes-heading {
   font-weight: 600;
   color: var(--text-primary);
-  margin: 8px 0 2px !important;
-  font-size: 10px;
+  margin: 12px 0 4px !important;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   padding-left: 0 !important;
