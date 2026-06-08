@@ -180,14 +180,38 @@ export async function fetchMyPRs(token: string, username: string): Promise<PullR
 }
 
 export async function fetchReviewedPRs(token: string, username: string): Promise<PullRequest[]> {
-  const q = encodeURIComponent(`is:pr is:open reviewed-by:${username} -author:${username}`)
-  const res = await fetch(
-    `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=30`,
-    { headers: headers(token) }
+  // `reviewed-by` only matches formal reviews; `commenter` also catches PRs where
+  // you left a plain conversation comment. Union both so either counts as "reviewed by me".
+  const queries = [
+    `is:pr is:open reviewed-by:${username} -author:${username}`,
+    `is:pr is:open commenter:${username} -author:${username}`
+  ]
+  const responses = await Promise.allSettled(
+    queries.map(q =>
+      fetch(
+        `${API_BASE}/search/issues?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=30`,
+        { headers: headers(token) }
+      )
+    )
   )
-  await checkResponse(res)
-  const data = await res.json()
-  return (data.items || []).map(mapSearchItem)
+
+  const seen = new Set<number>()
+  const prs: PullRequest[] = []
+  for (const result of responses) {
+    if (result.status !== 'fulfilled' || !result.value.ok) continue
+    const data = await result.value.json()
+    for (const item of data.items || []) {
+      const pr = mapSearchItem(item)
+      if (!seen.has(pr.id)) {
+        seen.add(pr.id)
+        prs.push(pr)
+      }
+    }
+  }
+
+  return prs.sort((a, b) =>
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  )
 }
 
 export async function fetchReviewRequestedPRs(
@@ -461,6 +485,25 @@ export async function fetchCommentsOnMyPRs(
   ).slice(0, 50)
 }
 
+function toReplyActivity(pr: PullRequest, c: any, parent: any): CommentActivity {
+  return {
+    id: `${pr.repo_full_name}-${pr.number}-${c.id}`,
+    prNumber: pr.number,
+    prTitle: pr.title,
+    prRepoFullName: pr.repo_full_name,
+    prHtmlUrl: pr.html_url,
+    myComment: { body: parent.body, html_url: parent.html_url },
+    comment: {
+      id: c.id,
+      user: { login: c.user.login, avatar_url: c.user.avatar_url, html_url: c.user.html_url },
+      body: c.body,
+      html_url: c.html_url,
+      created_at: c.created_at
+    },
+    read: false
+  } as CommentActivity
+}
+
 export async function fetchRepliesToMyComments(
   token: string,
   prs: PullRequest[],
@@ -474,43 +517,48 @@ export async function fetchRepliesToMyComments(
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return []
 
-      const res = await fetch(
-        `${API_BASE}/repos/${owner}/${repo}/pulls/${pr.number}/comments?per_page=100`,
-        { headers: headers(token) }
-      )
-      if (!res.ok) return []
-      const comments: any[] = await res.json()
+      const [reviewRes, issueRes] = await Promise.allSettled([
+        fetch(`${API_BASE}/repos/${owner}/${repo}/pulls/${pr.number}/comments?per_page=100`, { headers: headers(token) }),
+        fetch(`${API_BASE}/repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=100`, { headers: headers(token) })
+      ])
 
-      const myCommentIds = new Map<number, any>()
-      for (const c of comments) {
-        if (c.user?.login === username) {
-          myCommentIds.set(c.id, c)
+      const out: CommentActivity[] = []
+
+      // Threaded replies to my inline review comments
+      if (reviewRes.status === 'fulfilled' && reviewRes.value.ok) {
+        const comments: any[] = await reviewRes.value.json()
+        const myCommentIds = new Map<number, any>()
+        for (const c of comments) {
+          if (c.user?.login === username) myCommentIds.set(c.id, c)
+        }
+        if (myCommentIds.size > 0) {
+          for (const c of comments) {
+            if (c.in_reply_to_id && myCommentIds.has(c.in_reply_to_id) && c.user?.login !== username) {
+              out.push(toReplyActivity(pr, c, myCommentIds.get(c.in_reply_to_id)!))
+            }
+          }
         }
       }
 
-      if (myCommentIds.size === 0) return []
+      // Conversation (issue) comments aren't threaded, so treat any comment from
+      // someone else posted after my most recent comment as a reply to me.
+      if (issueRes.status === 'fulfilled' && issueRes.value.ok) {
+        const comments: any[] = await issueRes.value.json()
+        const myComments = comments.filter(c => c.user?.login === username)
+        if (myComments.length > 0) {
+          const lastMine = myComments.reduce((a, b) =>
+            new Date(b.created_at).getTime() > new Date(a.created_at).getTime() ? b : a
+          )
+          const lastMineTime = new Date(lastMine.created_at).getTime()
+          for (const c of comments) {
+            if (c.user?.login !== username && new Date(c.created_at).getTime() > lastMineTime) {
+              out.push(toReplyActivity(pr, c, lastMine))
+            }
+          }
+        }
+      }
 
-      return comments
-        .filter(c => c.in_reply_to_id && myCommentIds.has(c.in_reply_to_id) && c.user?.login !== username)
-        .map(c => {
-          const parent = myCommentIds.get(c.in_reply_to_id)!
-          return {
-            id: `${pr.repo_full_name}-${pr.number}-${c.id}`,
-            prNumber: pr.number,
-            prTitle: pr.title,
-            prRepoFullName: pr.repo_full_name,
-            prHtmlUrl: pr.html_url,
-            myComment: { body: parent.body, html_url: parent.html_url },
-            comment: {
-              id: c.id,
-              user: { login: c.user.login, avatar_url: c.user.avatar_url, html_url: c.user.html_url },
-              body: c.body,
-              html_url: c.html_url,
-              created_at: c.created_at
-            },
-            read: false
-          } as CommentActivity
-        })
+      return out
     })
   )
 

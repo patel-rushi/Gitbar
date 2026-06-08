@@ -207,6 +207,17 @@ export const useStore = create<AppState>((set, get) => ({
     set({ ignoredPRs })
   },
 
+  dismissReviewedPR: (repoFullName: string, prNumber: number) => {
+    const ignoredPRs = new Set(get().ignoredPRs)
+    ignoredPRs.add(`${repoFullName}#${prNumber}`)
+    const reviewReplies = get().reviewReplies.map(c =>
+      c.prRepoFullName === repoFullName && c.prNumber === prNumber ? { ...c, read: true } : c
+    )
+    saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
+    saveToStorage('gitbar_review_replies', reviewReplies)
+    set({ ignoredPRs, reviewReplies })
+  },
+
   clearBadge: () => {
     saveToStorage('gitbar_badge', 0)
     set({ badgeCount: 0 })

@@ -12,12 +12,13 @@ interface PRListProps {
   commentSource?: 'myPRComments' | 'reviewReplies'
   onCommentBadgeClick?: () => void
   allowIgnore?: boolean
+  allowDismiss?: boolean
   timeSource?: 'updated' | 'created'
 }
 
-export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, commentSource, onCommentBadgeClick, allowIgnore, timeSource }: PRListProps) {
+export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, commentSource, onCommentBadgeClick, allowIgnore, allowDismiss, timeSource }: PRListProps) {
   const store = useStore()
-  const { ignoredPRs, ignorePR } = store
+  const { ignoredPRs, ignorePR, dismissReviewedPR } = store
 
   const commentCounts = new Map<number, number>()
   if (commentSource) {
@@ -29,7 +30,7 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
     }
   }
 
-  const filteredPRs = allowIgnore
+  const filteredPRs = allowIgnore || allowDismiss
     ? prs.filter(pr => !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`))
     : prs
 
@@ -60,7 +61,15 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           showIncomingReviewState={showIncomingReviewState}
           newCommentCount={commentCounts.get(pr.number)}
           onCommentBadgeClick={onCommentBadgeClick}
-          onIgnore={allowIgnore ? () => ignorePR(`${pr.repo_full_name}#${pr.number}`) : undefined}
+          onIgnore={
+            allowDismiss
+              ? () => dismissReviewedPR(pr.repo_full_name, pr.number)
+              : allowIgnore
+                ? () => ignorePR(`${pr.repo_full_name}#${pr.number}`)
+                : undefined
+          }
+          ignoreVariant={allowDismiss ? 'check' : 'cross'}
+          ignoreTitle={allowDismiss ? 'Dismiss — stop showing this PR' : undefined}
           onClick={() => window.gitbar?.openExternal(pr.html_url)}
           timeSource={timeSource}
         />

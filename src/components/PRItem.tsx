@@ -47,6 +47,8 @@ interface PRItemProps {
   newCommentCount?: number
   onCommentBadgeClick?: () => void
   onIgnore?: () => void
+  ignoreVariant?: 'cross' | 'check'
+  ignoreTitle?: string
   onClick: () => void
   timeSource?: 'updated' | 'created'
 }
@@ -63,7 +65,7 @@ function describeIncomingReviewState(state: ReviewState, approvedBy?: string[]):
   return ''
 }
 
-export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, newCommentCount, onCommentBadgeClick, onIgnore, onClick, timeSource = 'updated' }: PRItemProps) {
+export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, newCommentCount, onCommentBadgeClick, onIgnore, ignoreVariant = 'cross', ignoreTitle, onClick, timeSource = 'updated' }: PRItemProps) {
   const status = getStatus(pr)
   const timestamp = timeSource === 'created' ? pr.created_at : pr.updated_at
   const date = new Date(timestamp)
@@ -75,11 +77,15 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, n
     <div className={`pr-item${unread ? ' pr-item-unread' : ''}`} onClick={onClick}>
       {onIgnore && (
         <button
-          className="pr-ignore-btn"
-          title="Ignore this PR"
+          className={`pr-ignore-btn${ignoreVariant === 'check' ? ' pr-ignore-btn-check' : ''}`}
+          title={ignoreTitle || 'Ignore this PR'}
           onClick={e => { e.stopPropagation(); onIgnore() }}
         >
-          ✕
+          {ignoreVariant === 'check' ? (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+            </svg>
+          ) : '✕'}
         </button>
       )}
       <img className="pr-avatar" src={pr.user.avatar_url} alt={pr.user.login} />

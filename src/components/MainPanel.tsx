@@ -81,7 +81,7 @@ export function MainPanel() {
               onChange={id => setReviewedSegment(id as 'prs' | 'replies')}
             />
             {reviewedSegment === 'prs'
-              ? <PRList prs={reviewedPRs} emptyTitle="No reviewed PRs" emptyText="PRs you've reviewed will appear here." showReviewState commentSource="reviewReplies" onCommentBadgeClick={() => setReviewedSegment('replies')} />
+              ? <PRList prs={reviewedPRs} emptyTitle="No reviewed PRs" emptyText="PRs you've reviewed will appear here." showReviewState commentSource="reviewReplies" onCommentBadgeClick={() => setReviewedSegment('replies')} allowDismiss />
               : <CommentsList items={reviewReplies} showMyComment emptyTitle="No replies" emptyText="Replies to your review comments will appear here." />
             }
           </>

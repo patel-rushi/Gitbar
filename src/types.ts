@@ -131,6 +131,7 @@ export interface AppState {
   markCommentRead: (id: string) => void
   ignorePR: (prKey: string) => void
   unignorePR: (prKey: string) => void
+  dismissReviewedPR: (repoFullName: string, prNumber: number) => void
   clearBadge: () => void
   updateSettings: (settings: Partial<AppSettings>) => void
   updateTabs: (tabs: TabConfig[]) => void

@@ -567,6 +567,11 @@ html, body, #root {
   color: white;
 }
 
+.pr-ignore-btn-check:hover {
+  background: var(--green);
+  color: white;
+}
+
 .pr-item-unread::before {
   content: '';
   position: absolute;

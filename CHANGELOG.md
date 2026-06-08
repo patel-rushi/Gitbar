@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.0
+- PRs you simply commented on now show under "Reviewed by Me", along with replies to those comments.
+- Added a dismiss checkmark on "Reviewed by Me" to hide stale PRs and clear their replies.
+
 ## v1.1.9
 - Moved the update notice to a compact pill in the top bar; click it to see what's new right inside the app.
 
