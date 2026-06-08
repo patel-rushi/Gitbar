@@ -73,11 +73,13 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, n
   const timeLabel = timeSource === 'created' ? 'Opened' : 'Updated'
   const timeTitle = `${timeLabel} ${format(date, 'PPp')}`
 
+  const isCheck = ignoreVariant === 'check'
+
   return (
-    <div className={`pr-item${unread ? ' pr-item-unread' : ''}`} onClick={onClick}>
+    <div className={`pr-item${unread ? ' pr-item-unread' : ''}${onIgnore && isCheck ? ' pr-item-dismissable' : ''}`} onClick={onClick}>
       {onIgnore && (
         <button
-          className={`pr-ignore-btn${ignoreVariant === 'check' ? ' pr-ignore-btn-check' : ''}`}
+          className={`pr-ignore-btn${isCheck ? ' pr-ignore-btn-check' : ''}`}
           title={ignoreTitle || 'Ignore this PR'}
           onClick={e => { e.stopPropagation(); onIgnore() }}
         >

@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.1
+- Made the "Reviewed by Me" dismiss checkmark clearly visible and stopped it overlapping the row.
+- Dismissing a PR now also clears its replies from the Replies tab.
+
 ## v1.2.0
 - PRs you simply commented on now show under "Reviewed by Me", along with replies to those comments.
 - Added a dismiss checkmark on "Reviewed by Me" to hide stale PRs and clear their replies.

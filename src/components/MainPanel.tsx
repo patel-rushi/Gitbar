@@ -16,8 +16,12 @@ export function MainPanel() {
     myPRComments, reviewReplies,
     events, badgeCount, markAllRead, pollError,
     tabs, isPolling, lastPollAt, poll, startPolling,
-    pendingUpdateVersion
+    pendingUpdateVersion, ignoredPRs
   } = useStore()
+
+  const visibleReviewReplies = reviewReplies.filter(
+    c => !ignoredPRs.has(`${c.prRepoFullName}#${c.prNumber}`)
+  )
 
   const [myPRsSegment, setMyPRsSegment] = useState<'prs' | 'comments'>('prs')
   const [reviewedSegment, setReviewedSegment] = useState<'prs' | 'replies'>('prs')
@@ -37,7 +41,7 @@ export function MainPanel() {
     .sort((a, b) => a.order - b.order)
 
   const unreadComments = myPRComments.filter(c => !c.read && !c.isResolved).length
-  const unreadReplies = reviewReplies.filter(c => !c.read && !c.isResolved).length
+  const unreadReplies = visibleReviewReplies.filter(c => !c.read && !c.isResolved).length
 
   const unreadByTab: Record<string, boolean> = {
     'my-prs': events.some(e => !e.read && e.type === 'reply_to_pr') || unreadComments > 0,
@@ -82,7 +86,7 @@ export function MainPanel() {
             />
             {reviewedSegment === 'prs'
               ? <PRList prs={reviewedPRs} emptyTitle="No reviewed PRs" emptyText="PRs you've reviewed will appear here." showReviewState commentSource="reviewReplies" onCommentBadgeClick={() => setReviewedSegment('replies')} allowDismiss />
-              : <CommentsList items={reviewReplies} showMyComment emptyTitle="No replies" emptyText="Replies to your review comments will appear here." />
+              : <CommentsList items={visibleReviewReplies} showMyComment emptyTitle="No replies" emptyText="Replies to your review comments will appear here." />
             }
           </>
         )

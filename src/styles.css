@@ -567,9 +567,26 @@ html, body, #root {
   color: white;
 }
 
+/* Dismiss (check) variant: always visible, clear affordance, reserved space */
+.pr-item-dismissable {
+  padding-right: 38px;
+}
+
+.pr-ignore-btn-check {
+  display: flex;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
 .pr-ignore-btn-check:hover {
   background: var(--green);
   color: white;
+  border-color: var(--green);
 }
 
 .pr-item-unread::before {
