@@ -108,6 +108,7 @@ export interface AppState {
   myPRComments: CommentActivity[]
   reviewReplies: CommentActivity[]
   ignoredPRs: Set<string>
+  dismissedComments: Set<string>
   
   events: NotificationEvent[]
   badgeCount: number
@@ -132,6 +133,7 @@ export interface AppState {
   ignorePR: (prKey: string) => void
   unignorePR: (prKey: string) => void
   dismissReviewedPR: (repoFullName: string, prNumber: number) => void
+  dismissComment: (id: string) => void
   clearBadge: () => void
   updateSettings: (settings: Partial<AppSettings>) => void
   updateTabs: (tabs: TabConfig[]) => void

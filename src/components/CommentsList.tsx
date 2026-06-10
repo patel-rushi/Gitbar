@@ -1,7 +1,6 @@
 import { formatDistanceToNow } from 'date-fns'
 import type { CommentActivity } from '../types'
 import { useStore } from '../store'
-import { CheckIcon } from './Icons'
 
 interface CommentsListProps {
   items: CommentActivity[]
@@ -11,11 +10,11 @@ interface CommentsListProps {
 }
 
 export function CommentsList({ items, showMyComment, emptyTitle = 'No comments', emptyText = 'Nothing here yet.' }: CommentsListProps) {
-  const { markCommentRead, settings } = useStore()
+  const { markCommentRead, dismissComment, dismissedComments, settings } = useStore()
 
-  const visibleItems = settings.hideResolvedComments
-    ? items.filter(i => !i.isResolved)
-    : items
+  const visibleItems = items.filter(i =>
+    !dismissedComments.has(i.id) && (settings.hideResolvedComments ? !i.isResolved : true)
+  )
 
   if (visibleItems.length === 0) {
     return (
@@ -59,15 +58,15 @@ export function CommentsList({ items, showMyComment, emptyTitle = 'No comments',
               className={`comment-item${item.read ? '' : ' comment-unread'}${item.isResolved ? ' comment-resolved' : ''}`}
               onClick={() => handleClick(item)}
             >
-              {!item.read && (
-                <button
-                  className="comment-mark-read-btn"
-                  title="Mark as read"
-                  onClick={e => { e.stopPropagation(); markCommentRead(item.id) }}
-                >
-                  <CheckIcon />
-                </button>
-              )}
+              <button
+                className="comment-dismiss-btn"
+                title="Dismiss — remove this comment"
+                onClick={e => { e.stopPropagation(); dismissComment(item.id) }}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                </svg>
+              </button>
               {showMyComment && item.myComment && (
                 <div className="comment-my-context">
                   <span className="comment-my-label">You:</span>

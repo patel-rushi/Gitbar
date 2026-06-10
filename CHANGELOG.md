@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.2
+- The Replies tab now has the same dismiss checkmark as PRs; ticking it removes that comment.
+- Dismissed PRs and comments now stay dismissed after restarting the app.
+
 ## v1.2.1
 - Made the "Reviewed by Me" dismiss checkmark clearly visible and stopped it overlapping the row.
 - Dismissing a PR now also clears its replies from the Replies tab.

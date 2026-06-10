@@ -89,6 +89,7 @@ export const useStore = create<AppState>((set, get) => ({
   myPRComments: loadFromStorage<CommentActivity[]>('gitbar_my_pr_comments', []),
   reviewReplies: loadFromStorage<CommentActivity[]>('gitbar_review_replies', []),
   ignoredPRs: new Set<string>(loadFromStorage<string[]>('gitbar_ignored_prs', [])),
+  dismissedComments: new Set<string>(loadFromStorage<string[]>('gitbar_dismissed_comments', [])),
 
   events: loadFromStorage<NotificationEvent[]>('gitbar_events', []),
   badgeCount: loadFromStorage<number>('gitbar_badge', 0),
@@ -216,6 +217,17 @@ export const useStore = create<AppState>((set, get) => ({
     saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
     saveToStorage('gitbar_review_replies', reviewReplies)
     set({ ignoredPRs, reviewReplies })
+  },
+
+  dismissComment: (id: string) => {
+    const dismissedComments = new Set(get().dismissedComments)
+    dismissedComments.add(id)
+    const myPRComments = get().myPRComments.map(c => c.id === id ? { ...c, read: true } : c)
+    const reviewReplies = get().reviewReplies.map(c => c.id === id ? { ...c, read: true } : c)
+    saveToStorage('gitbar_dismissed_comments', Array.from(dismissedComments))
+    saveToStorage('gitbar_my_pr_comments', myPRComments)
+    saveToStorage('gitbar_review_replies', reviewReplies)
+    set({ dismissedComments, myPRComments, reviewReplies })
   },
 
   clearBadge: () => {
@@ -524,7 +536,20 @@ if (typeof window !== 'undefined' && window.gitbar) {
     loadFromPersistentStore<string | null>('gitbar_avatar', null),
     loadFromPersistentStore<Partial<AppSettings>>('gitbar_settings', {}),
     loadFromPersistentStore<string[]>('gitbar_user_teams', []),
-  ]).then(([token, username, avatarUrl, settings, userTeams]) => {
+    loadFromPersistentStore<string[]>('gitbar_ignored_prs', []),
+    loadFromPersistentStore<string[]>('gitbar_dismissed_comments', []),
+  ]).then(([token, username, avatarUrl, settings, userTeams, ignoredPrs, dismissedComments]) => {
+    // Always restore dismissal state — localStorage isn't reliably persisted
+    // across restarts, so these live in the main-process store.
+    const dismissalPatch: Partial<AppState> = {}
+    if (Array.isArray(ignoredPrs) && ignoredPrs.length > 0) {
+      dismissalPatch.ignoredPRs = new Set([...useStore.getState().ignoredPRs, ...ignoredPrs])
+    }
+    if (Array.isArray(dismissedComments) && dismissedComments.length > 0) {
+      dismissalPatch.dismissedComments = new Set([...useStore.getState().dismissedComments, ...dismissedComments])
+    }
+    if (Object.keys(dismissalPatch).length > 0) useStore.setState(dismissalPatch)
+
     const currentToken = useStore.getState().token
     if (!currentToken && token) {
       useStore.setState({

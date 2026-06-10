@@ -1282,7 +1282,7 @@ html, body, #root {
 }
 
 .comment-item {
-  padding: 6px 16px 6px 28px;
+  padding: 6px 40px 6px 28px;
   cursor: pointer;
   transition: background 0.1s;
   position: relative;
@@ -1292,30 +1292,29 @@ html, body, #root {
   background: var(--bg-hover);
 }
 
-.comment-mark-read-btn {
+.comment-dismiss-btn {
   position: absolute;
   right: 8px;
-  top: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: none;
-  background: var(--bg-elevated, rgba(255, 255, 255, 0.08));
-  color: var(--text-muted);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1;
+  transition: all 0.1s;
 }
 
-.comment-item:hover .comment-mark-read-btn {
-  display: flex;
-}
-
-.comment-mark-read-btn:hover {
-  background: var(--accent, #2f81f7);
+.comment-dismiss-btn:hover {
+  background: var(--green);
   color: white;
+  border-color: var(--green);
 }
 
 .comment-unread::before {
