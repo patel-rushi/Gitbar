@@ -5,8 +5,8 @@ const path = require('path')
 const outDir = path.join(__dirname, '..', 'build')
 fs.mkdirSync(outDir, { recursive: true })
 
-function drawGitIcon(ctx, s, color) {
-  ctx.clearRect(0, 0, s, s)
+function drawGitIcon(ctx, s, color, clear = true) {
+  if (clear) ctx.clearRect(0, 0, s, s)
 
   const pad = Math.round(s * 0.12)
   const inner = s - pad * 2
@@ -77,6 +77,31 @@ function createTrayIcon(size, scale, color) {
   return canvas.toBuffer('image/png')
 }
 
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+// "Active" icon: white glyph on a filled accent background, shown while the
+// panel is open to mimic the native highlighted status item. Non-template.
+function createActiveTrayIcon(size, scale) {
+  const w = size * scale
+  const canvas = createCanvas(w, w)
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, w, w)
+  const r = Math.round(w * 0.24)
+  ctx.fillStyle = '#2f81f7'
+  roundRectPath(ctx, 0.5, 0.5, w - 1, w - 1, r)
+  ctx.fill()
+  drawGitIcon(ctx, w, 'white', false)
+  return canvas.toBuffer('image/png')
+}
+
 const variants = [
   { name: 'trayTemplate.png', size: 22, scale: 1, color: 'black' },
   { name: 'trayTemplate@2x.png', size: 22, scale: 2, color: 'black' },
@@ -84,6 +109,18 @@ const variants = [
 
 for (const v of variants) {
   const buf = createTrayIcon(v.size, v.scale, v.color)
+  const out = path.join(outDir, v.name)
+  fs.writeFileSync(out, buf)
+  console.log(`  ${v.name} (${buf.length} bytes)`)
+}
+
+const activeVariants = [
+  { name: 'trayActive.png', size: 22, scale: 1 },
+  { name: 'trayActive@2x.png', size: 22, scale: 2 },
+]
+
+for (const v of activeVariants) {
+  const buf = createActiveTrayIcon(v.size, v.scale)
   const out = path.join(outDir, v.name)
   fs.writeFileSync(out, buf)
   console.log(`  ${v.name} (${buf.length} bytes)`)

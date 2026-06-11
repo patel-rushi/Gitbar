@@ -25,6 +25,10 @@ function writeStore(data: Record<string, any>) {
 
 let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
+let normalTrayIcon: Electron.NativeImage | null = null
+let activeTrayIcon: Electron.NativeImage | null = null
+let isPanelOpen = false
+let lastHideAt = 0
 
 const WINDOW_WIDTH = 380
 const WINDOW_HEIGHT = 560
@@ -60,6 +64,29 @@ function loadTrayIcon(): Electron.NativeImage {
   return fallback
 }
 
+// "Active" highlighted icon shown while the panel is open. Non-template so the
+// accent background renders as-is. Falls back to the normal icon if missing.
+function loadActiveTrayIcon(): Electron.NativeImage {
+  const icon2xPath = getAssetPath('trayActive@2x.png')
+  const icon1xPath = getAssetPath('trayActive.png')
+
+  if (fs.existsSync(icon2xPath)) {
+    return nativeImage.createFromBuffer(fs.readFileSync(icon2xPath), { scaleFactor: 2.0 })
+  }
+  if (fs.existsSync(icon1xPath)) {
+    return nativeImage.createFromPath(icon1xPath)
+  }
+  return loadTrayIcon()
+}
+
+function setPanelOpenState(open: boolean): void {
+  isPanelOpen = open
+  if (!open) lastHideAt = Date.now()
+  if (tray && normalTrayIcon && activeTrayIcon) {
+    tray.setImage(open ? activeTrayIcon : normalTrayIcon)
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -93,43 +120,67 @@ function createWindow() {
   }
 
   mainWindow.on('blur', () => {
-    mainWindow?.hide()
+    hideWindow()
   })
+}
+
+function hideWindow(): void {
+  if (!mainWindow) return
+  mainWindow.hide()
+  setPanelOpenState(false)
 }
 
 function showWindow() {
   if (!mainWindow) return
 
+  // Re-assert cross-Space visibility on every show so the panel appears on the
+  // CURRENT space/display rather than being pulled to where it was first opened
+  // (e.g. a fullscreen app's Space). skipTransformProcessType avoids a process
+  // type flip that itself can trigger a Space switch.
+  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+  mainWindow.setAlwaysOnTop(true, 'screen-saver')
+
   const trayBounds = tray?.getBounds()
-  if (!trayBounds) return
+  const hasTrayBounds = !!trayBounds && trayBounds.width > 0
 
-  const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y })
-  const x = Math.round(trayBounds.x + trayBounds.width / 2 - WINDOW_WIDTH / 2)
-  const y = trayBounds.y + trayBounds.height + 4
+  // Pick the display under the tray icon, falling back to the cursor's display
+  // when tray bounds are stale/zero (common right after wake or display changes).
+  const anchor = hasTrayBounds
+    ? { x: trayBounds!.x + trayBounds!.width / 2, y: trayBounds!.y }
+    : screen.getCursorScreenPoint()
+  const area = screen.getDisplayNearestPoint(anchor).workArea
 
-  const maxX = display.bounds.x + display.bounds.width - WINDOW_WIDTH - 8
-  const adjustedX = Math.min(Math.max(x, display.bounds.x + 8), maxX)
+  let x = Math.round(anchor.x - WINDOW_WIDTH / 2)
+  x = Math.min(Math.max(x, area.x + 8), area.x + area.width - WINDOW_WIDTH - 8)
 
-  mainWindow.setPosition(adjustedX, y)
+  let y = hasTrayBounds ? trayBounds!.y + trayBounds!.height + 4 : area.y + 4
+  y = Math.min(Math.max(y, area.y + 4), area.y + area.height - WINDOW_HEIGHT - 8)
+
+  mainWindow.setPosition(x, y)
   mainWindow.show()
   mainWindow.focus()
+  setPanelOpenState(true)
   maybeCheckForUpdates()
 }
 
 function toggleWindow() {
   if (!mainWindow) return
-  if (mainWindow.isVisible()) {
-    mainWindow.hide()
-  } else {
-    showWindow()
+  if (isPanelOpen) {
+    hideWindow()
+    return
   }
+  // If a blur from this same click just hid the panel, don't immediately
+  // reopen it — that race is what caused the double-click / stuck behavior.
+  if (Date.now() - lastHideAt < 250) return
+  showWindow()
 }
 
 app.dock?.hide()
 
 app.whenReady().then(() => {
-  const icon = loadTrayIcon()
-  tray = new Tray(icon)
+  normalTrayIcon = loadTrayIcon()
+  activeTrayIcon = loadActiveTrayIcon()
+  tray = new Tray(normalTrayIcon)
   tray.setToolTip(`GitBar v${app.getVersion()}`)
   tray.on('click', toggleWindow)
 
@@ -189,7 +240,7 @@ ipcMain.on('open-external', (_event, url: string) => {
 })
 
 ipcMain.on('hide-window', () => {
-  mainWindow?.hide()
+  hideWindow()
 })
 
 ipcMain.handle('store-get', (_event, key: string) => {

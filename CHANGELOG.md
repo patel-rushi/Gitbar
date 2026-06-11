@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.3
+- Fixed the menu bar panel sometimes not opening, jumping to a fullscreen space, or needing a second click.
+- The menu bar icon now stays highlighted while the panel is open.
+
 ## v1.2.2
 - The Replies tab now has the same dismiss checkmark as PRs; ticking it removes that comment.
 - Dismissed PRs and comments now stay dismissed after restarting the app.
