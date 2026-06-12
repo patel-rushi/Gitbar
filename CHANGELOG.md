@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.2.5
+- The update prompt now always offers the newest version, even if you're several releases behind.
+
 ## v1.2.4
 - Minor under-the-hood maintenance and stability tweaks.
 

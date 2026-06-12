@@ -23,10 +23,11 @@ function runUpdateCheck(): void {
 
 export function maybeCheckForUpdates(): void {
   if (isDev()) return
-  if (pendingUpdate) {
-    broadcastUpdateAvailable(pendingUpdate)
-    return
-  }
+  // Surface whatever is already downloaded right away for instant feedback...
+  if (pendingUpdate) broadcastUpdateAvailable(pendingUpdate)
+  // ...but keep checking (throttled) even when something is pending, so a newer
+  // release supersedes a stale download and users always land on the latest
+  // version instead of an interim one.
   if (Date.now() - lastCheckAt < ON_FOCUS_THROTTLE_MS) return
   runUpdateCheck()
 }
