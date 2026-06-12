@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.2.4
+- Minor under-the-hood maintenance and stability tweaks.
+
 ## v1.2.3
 - Fixed the menu bar panel sometimes not opening, jumping to a fullscreen space, or needing a second click.
 - The menu bar icon now stays highlighted while the panel is open.
