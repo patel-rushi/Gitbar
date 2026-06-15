@@ -1,6 +1,6 @@
 {
   "name": "gitbar",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "A macOS menu bar app that surfaces GitHub notifications that matter",
   "main": "dist-electron/main.js",
   "author": "Rushi Patel",

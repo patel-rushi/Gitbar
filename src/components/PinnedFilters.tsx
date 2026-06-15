@@ -4,7 +4,7 @@ import type { PullRequest, CustomFilter } from '../types'
 import { fetchFilteredPRs, fetchRepoLabels, fetchOrgRepos, fetchOrgMembers, fetchUserOrgs } from '../github'
 import { PRItem } from './PRItem'
 import { AutocompleteInput } from './AutocompleteInput'
-import { InboxIcon, PlusIcon, TrashIcon } from './Icons'
+import { InboxIcon, PlusIcon, TrashIcon, PencilIcon } from './Icons'
 
 interface SavedFilter extends CustomFilter {
   id: string
@@ -30,6 +30,7 @@ export function PinnedFilters() {
   const [results, setResults] = useState<PullRequest[]>([])
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Omit<SavedFilter, 'id'>>({
     name: '',
     labels: [],
@@ -37,6 +38,26 @@ export function PinnedFilters() {
     authors: [],
     query: ''
   })
+
+  const emptyDraft = (): Omit<SavedFilter, 'id'> => ({ name: '', labels: [], repos: [], authors: [], query: '' })
+
+  const startCreate = () => {
+    setEditingId(null)
+    setDraft(emptyDraft())
+    setEditing(true)
+  }
+
+  const startEdit = (f: SavedFilter) => {
+    setEditingId(f.id)
+    setDraft({ name: f.name, labels: f.labels, repos: f.repos, authors: f.authors, query: f.query ?? '' })
+    setEditing(true)
+  }
+
+  const cancelEdit = () => {
+    setEditing(false)
+    setEditingId(null)
+    setDraft(emptyDraft())
+  }
 
   const [orgs, setOrgs] = useState<string[]>([])
 
@@ -66,18 +87,18 @@ export function PinnedFilters() {
     }
   }, [activeFilter, token, filters])
 
-  const addFilter = () => {
+  const saveFilter = () => {
     if (!draft.name.trim()) return
-    const newFilter: SavedFilter = {
-      ...draft,
-      id: Date.now().toString()
-    }
-    const updated = [...filters, newFilter]
+    const id = editingId ?? Date.now().toString()
+    const updated = editingId
+      ? filters.map(f => (f.id === editingId ? { ...draft, id } : f))
+      : [...filters, { ...draft, id }]
     setFilters(updated)
     saveFilters(updated)
     setEditing(false)
-    setDraft({ name: '', labels: [], repos: [], authors: [], query: '' })
-    setActiveFilter(newFilter.id)
+    setEditingId(null)
+    setDraft(emptyDraft())
+    setActiveFilter(id)
   }
 
   const fetchLabelSuggestions = useCallback(async (query: string) => {
@@ -145,7 +166,7 @@ export function PinnedFilters() {
     return (
       <div className="pr-list" style={{ padding: '12px 16px' }}>
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>New Custom Filter</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{editingId ? 'Edit Filter' : 'New Custom Filter'}</div>
           <div className="filter-field">
             <label>Filter Name</label>
             <input
@@ -199,10 +220,10 @@ export function PinnedFilters() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="setup-btn" onClick={addFilter} disabled={!draft.name.trim()} style={{ flex: 1 }}>
-              Save Filter
+            <button className="setup-btn" onClick={saveFilter} disabled={!draft.name.trim()} style={{ flex: 1 }}>
+              {editingId ? 'Save Changes' : 'Save Filter'}
             </button>
-            <button className="btn-secondary" onClick={() => setEditing(false)}>
+            <button className="btn-secondary" onClick={cancelEdit}>
               Cancel
             </button>
           </div>
@@ -220,7 +241,9 @@ export function PinnedFilters() {
             ← Back
           </button>
           <span style={{ fontSize: 12, fontWeight: 600 }}>{f?.name}</span>
-          <span style={{ width: 60 }} />
+          <button className="btn-secondary" onClick={() => f && startEdit(f)} style={{ padding: '4px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }} title="Edit filter">
+            <PencilIcon /> Edit
+          </button>
         </div>
         {loading ? (
           <div className="empty-state"><div className="spinner" /></div>
@@ -251,7 +274,7 @@ export function PinnedFilters() {
           <InboxIcon />
           <div className="empty-state-title">No pinned filters</div>
           <div className="empty-state-text">Create custom filters to quickly find PRs by label, repo, or author.</div>
-          <button className="add-filter-btn" onClick={() => setEditing(true)} style={{ width: 'auto', marginTop: 8, padding: '6px 16px' }}>
+          <button className="add-filter-btn" onClick={startCreate} style={{ width: 'auto', marginTop: 8, padding: '6px 16px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <PlusIcon /> Create Filter
             </span>
@@ -270,13 +293,16 @@ export function PinnedFilters() {
                   {f.query?.trim() && <span>Query: {f.query.trim()}</span>}
                 </div>
               </div>
-              <button className="icon-btn" onClick={() => removeFilter(f.id)} style={{ color: 'var(--red)' }}>
+              <button className="icon-btn" onClick={() => startEdit(f)} title="Edit filter">
+                <PencilIcon />
+              </button>
+              <button className="icon-btn" onClick={() => removeFilter(f.id)} style={{ color: 'var(--red)' }} title="Delete filter">
                 <TrashIcon />
               </button>
             </div>
           ))}
           <div style={{ padding: '8px 16px' }}>
-            <button className="add-filter-btn" onClick={() => setEditing(true)}>
+            <button className="add-filter-btn" onClick={startCreate}>
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <PlusIcon /> Add Filter
               </span>

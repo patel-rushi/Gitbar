@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.2.6
+- You can now edit a pinned custom filter instead of recreating it.
+
 ## v1.2.5
 - The update prompt now always offers the newest version, even if you're several releases behind.
 
