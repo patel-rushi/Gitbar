@@ -290,7 +290,7 @@ export async function fetchTeammatePRs(
   const seenIds = new Set<number>()
 
   const fetches = teammates.map(member => {
-    const q = encodeURIComponent(`is:pr is:open author:${member} review:required draft:false`)
+    const q = encodeURIComponent(`is:pr is:open author:${member} draft:false`)
     return fetch(
       `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=10`,
       { headers: headers(token) }
@@ -443,23 +443,17 @@ export async function fetchCommentsOnMyPRs(
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return []
 
-      const [reviewRes, issueRes] = await Promise.allSettled([
+      const [reviewCommentsRes, issueRes, reviewsRes] = await Promise.allSettled([
         fetch(`${API_BASE}/repos/${owner}/${repo}/pulls/${pr.number}/comments?per_page=50&sort=created&direction=desc`, { headers: headers(token) }),
-        fetch(`${API_BASE}/repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=50&sort=created&direction=desc`, { headers: headers(token) })
+        fetch(`${API_BASE}/repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=50&sort=created&direction=desc`, { headers: headers(token) }),
+        fetch(`${API_BASE}/repos/${owner}/${repo}/pulls/${pr.number}/reviews?per_page=50`, { headers: headers(token) })
       ])
 
-      const comments: any[] = []
-      if (reviewRes.status === 'fulfilled' && reviewRes.value.ok) {
-        comments.push(...await reviewRes.value.json())
-      }
-      if (issueRes.status === 'fulfilled' && issueRes.value.ok) {
-        comments.push(...await issueRes.value.json())
-      }
-
-      return comments
-        .filter(c => c.user?.login !== username)
-        .map(c => ({
-          id: `${pr.repo_full_name}-${pr.number}-${c.id}`,
+      const activities: CommentActivity[] = []
+      const pushComment = (idKey: string | number, c: any, createdAt: string) => {
+        if (!c.user || c.user.login === username) return
+        activities.push({
+          id: `${pr.repo_full_name}-${pr.number}-${idKey}`,
           prNumber: pr.number,
           prTitle: pr.title,
           prRepoFullName: pr.repo_full_name,
@@ -469,10 +463,27 @@ export async function fetchCommentsOnMyPRs(
             user: { login: c.user.login, avatar_url: c.user.avatar_url, html_url: c.user.html_url },
             body: c.body,
             html_url: c.html_url,
-            created_at: c.created_at
+            created_at: createdAt
           },
           read: false
-        } as CommentActivity))
+        } as CommentActivity)
+      }
+
+      // Inline review comments + conversation comments
+      if (reviewCommentsRes.status === 'fulfilled' && reviewCommentsRes.value.ok) {
+        for (const c of await reviewCommentsRes.value.json()) pushComment(c.id, c, c.created_at)
+      }
+      if (issueRes.status === 'fulfilled' && issueRes.value.ok) {
+        for (const c of await issueRes.value.json()) pushComment(c.id, c, c.created_at)
+      }
+      // Review summary bodies (the "Comment"/"Approve" reviews that include a note)
+      if (reviewsRes.status === 'fulfilled' && reviewsRes.value.ok) {
+        for (const r of await reviewsRes.value.json()) {
+          if ((r.body || '').trim()) pushComment(`review-${r.id}`, r, r.submitted_at || r.created_at || new Date().toISOString())
+        }
+      }
+
+      return activities
     })
   )
 
@@ -483,6 +494,21 @@ export async function fetchCommentsOnMyPRs(
   return all.sort((a, b) =>
     new Date(b.comment.created_at).getTime() - new Date(a.comment.created_at).getTime()
   ).slice(0, 50)
+}
+
+function normalizeText(s: string): string {
+  return (s || '').replace(/\r/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+// GitHub "Quote reply" inserts the original comment as a leading blockquote.
+// Return the combined text of all blockquoted lines so we can match it against
+// the logged-in user's own comments.
+function extractQuotedText(body: string): string {
+  return (body || '')
+    .split('\n')
+    .filter(l => /^\s*>/.test(l))
+    .map(l => l.replace(/^\s*>+\s?/, ''))
+    .join(' ')
 }
 
 function toReplyActivity(pr: PullRequest, c: any, parent: any): CommentActivity {
@@ -517,16 +543,17 @@ export async function fetchRepliesToMyComments(
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return []
 
-      const [reviewRes, issueRes] = await Promise.allSettled([
+      const [inlineRes, issueRes, reviewsRes] = await Promise.allSettled([
         fetch(`${API_BASE}/repos/${owner}/${repo}/pulls/${pr.number}/comments?per_page=100`, { headers: headers(token) }),
-        fetch(`${API_BASE}/repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=100`, { headers: headers(token) })
+        fetch(`${API_BASE}/repos/${owner}/${repo}/issues/${pr.number}/comments?per_page=100`, { headers: headers(token) }),
+        fetch(`${API_BASE}/repos/${owner}/${repo}/pulls/${pr.number}/reviews?per_page=100`, { headers: headers(token) })
       ])
 
       const out: CommentActivity[] = []
 
       // Threaded replies to my inline review comments
-      if (reviewRes.status === 'fulfilled' && reviewRes.value.ok) {
-        const comments: any[] = await reviewRes.value.json()
+      if (inlineRes.status === 'fulfilled' && inlineRes.value.ok) {
+        const comments: any[] = await inlineRes.value.json()
         const myCommentIds = new Map<number, any>()
         for (const c of comments) {
           if (c.user?.login === username) myCommentIds.set(c.id, c)
@@ -540,20 +567,37 @@ export async function fetchRepliesToMyComments(
         }
       }
 
-      // Conversation (issue) comments aren't threaded, so treat any comment from
-      // someone else posted after my most recent comment as a reply to me.
-      if (issueRes.status === 'fulfilled' && issueRes.value.ok) {
-        const comments: any[] = await issueRes.value.json()
-        const myComments = comments.filter(c => c.user?.login === username)
-        if (myComments.length > 0) {
-          const lastMine = myComments.reduce((a, b) =>
-            new Date(b.created_at).getTime() > new Date(a.created_at).getTime() ? b : a
+      // Direct quote replies to me. My "comment" can be a conversation (issue)
+      // comment OR a review summary body (the "Comment" review). Show a later
+      // conversation comment from someone else only when it actually quotes one
+      // of my comments (GitHub "Quote reply"); ignore unrelated comments.
+      const issueComments: any[] = (issueRes.status === 'fulfilled' && issueRes.value.ok)
+        ? await issueRes.value.json() : []
+      const reviews: any[] = (reviewsRes.status === 'fulfilled' && reviewsRes.value.ok)
+        ? await reviewsRes.value.json() : []
+
+      const myBodies: { body: string; html_url: string; norm: string }[] = []
+      for (const c of issueComments) {
+        if (c.user?.login === username && (c.body || '').trim()) {
+          myBodies.push({ body: c.body, html_url: c.html_url, norm: normalizeText(c.body) })
+        }
+      }
+      for (const r of reviews) {
+        if (r.user?.login === username && (r.body || '').trim()) {
+          myBodies.push({ body: r.body, html_url: r.html_url, norm: normalizeText(r.body) })
+        }
+      }
+
+      if (myBodies.length > 0) {
+        for (const c of issueComments) {
+          if (c.user?.login === username) continue
+          const quoted = normalizeText(extractQuotedText(c.body))
+          if (quoted.length < 8) continue
+          const match = myBodies.find(mb =>
+            mb.norm.length >= 8 && (quoted.includes(mb.norm) || mb.norm.includes(quoted))
           )
-          const lastMineTime = new Date(lastMine.created_at).getTime()
-          for (const c of comments) {
-            if (c.user?.login !== username && new Date(c.created_at).getTime() > lastMineTime) {
-              out.push(toReplyActivity(pr, c, lastMine))
-            }
+          if (match) {
+            out.push(toReplyActivity(pr, c, { body: match.body, html_url: match.html_url }))
           }
         }
       }

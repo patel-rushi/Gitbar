@@ -503,12 +503,20 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Poll error:', err)
       if (err instanceof GitHubApiError && err.status === 401) {
-        get().stopPolling()
-        set({ isPolling: false, pollError: 'Token expired — please sign in again' })
+        // GitHub occasionally returns a one-off 401 on an otherwise-valid token.
+        // Confirm against /user before declaring the token dead and stopping.
+        const stillValid = token ? await github.validateToken(token) : null
+        if (stillValid) {
+          // Transient hiccup: keep polling, the next tick recovers on its own.
+          set({ isPolling: false, pollError: null })
+        } else {
+          get().stopPolling()
+          set({ isPolling: false, pollError: 'Token expired, please sign in again' })
+        }
       } else if (err instanceof GitHubApiError) {
         set({ isPolling: false, pollError: err.message })
       } else {
-        set({ isPolling: false, pollError: 'Network error — check your connection' })
+        set({ isPolling: false, pollError: 'Network error, check your connection' })
       }
     }
   },

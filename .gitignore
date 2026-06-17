@@ -8,3 +8,6 @@ release/
 # App screenshots contain private repo/PR data; keep them out of the repo
 docs/images/
 deck/
+
+# Local-only agent guidance (not for the public repo)
+.cursor/

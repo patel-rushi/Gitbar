@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.7
+- Review Requested now shows approved PRs too (drafts still hidden).
+- Approved and comment review markers are easier to spot.
+- Fixed a false "token expired" message that appeared on a passing token.
+
 ## v1.2.6
 - You can now edit a pinned custom filter instead of recreating it.
 
