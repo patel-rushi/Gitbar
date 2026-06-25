@@ -24,9 +24,20 @@ const DEFAULT_SETTINGS: AppSettings = {
   hideResolvedComments: false
 }
 
+const STORAGE_SUFFIX = (import.meta.env.DEV && import.meta.env.VITE_GITBAR_DEMO === '1') ? '_demo' : ''
+
+function storageKey(key: string): string {
+  return `${key}${STORAGE_SUFFIX}`
+}
+
+const INITIAL_SETTINGS: AppSettings = {
+  ...DEFAULT_SETTINGS,
+  ...loadFromStorage<Partial<AppSettings>>('gitbar_settings', {})
+}
+
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key)
+    const raw = localStorage.getItem(storageKey(key))
     return raw ? JSON.parse(raw) : fallback
   } catch {
     return fallback
@@ -34,15 +45,17 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 function saveToStorage(key: string, value: any) {
-  localStorage.setItem(key, JSON.stringify(value))
-  window.gitbar?.storeSet(key, value)
+  const scopedKey = storageKey(key)
+  localStorage.setItem(scopedKey, JSON.stringify(value))
+  window.gitbar?.storeSet(scopedKey, value)
 }
 
 async function loadFromPersistentStore<T>(key: string, fallback: T): Promise<T> {
+  const scopedKey = storageKey(key)
   try {
-    const value = await window.gitbar?.storeGet(key)
+    const value = await window.gitbar?.storeGet(scopedKey)
     if (value != null) {
-      localStorage.setItem(key, JSON.stringify(value))
+      localStorage.setItem(scopedKey, JSON.stringify(value))
       return value
     }
   } catch {}
@@ -70,34 +83,216 @@ function migrateTabs(tabs: TabConfig[]): TabConfig[] {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
+export const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_GITBAR_DEMO === '1'
+export const DEMO_TEAM_OPTIONS = [
+  'acme/platform',
+  'acme/desktop-foundations',
+  'acme/release-ops',
+  'acme/core-squad'
+]
+export const DEMO_USER_OPTIONS = ['you-demo', 'amy', 'ben', 'nina', 'sarah']
+const DEMO_NOW = Date.now()
+
+function demoIso(hoursAgo: number): string {
+  return new Date(DEMO_NOW - hoursAgo * 3600e3).toISOString()
+}
+
+function demoPR(partial: Partial<PullRequest> & { id: number; number: number; title: string; repo_full_name: string }): PullRequest {
+  return {
+    id: partial.id,
+    number: partial.number,
+    title: partial.title,
+    html_url: partial.html_url || 'https://github.com/acme/platform/pull/1',
+    state: 'open',
+    draft: false,
+    merged_at: null,
+    created_at: partial.created_at || demoIso(2),
+    updated_at: partial.updated_at || demoIso(1),
+    user: partial.user || {
+      login: 'octocat',
+      avatar_url: 'https://avatars.githubusercontent.com/u/583231?v=4',
+      html_url: 'https://github.com/octocat'
+    },
+    repository_url: partial.repository_url || `https://api.github.com/repos/${partial.repo_full_name}`,
+    repo_full_name: partial.repo_full_name,
+    labels: partial.labels || [],
+    requested_reviewers: partial.requested_reviewers || [],
+    comments: partial.comments ?? 0,
+    review_comments: partial.review_comments ?? 0,
+    myReviewState: partial.myReviewState,
+    incomingReviewState: partial.incomingReviewState,
+    approvedBy: partial.approvedBy
+  }
+}
+
+const DEMO_DATA = {
+  username: 'you-demo',
+  avatarUrl: 'https://avatars.githubusercontent.com/u/583231?v=4',
+  myPRs: [
+    demoPR({ id: 1001, number: 842, title: 'Improve launch time of command palette', repo_full_name: 'acme/desktop-app', created_at: demoIso(3), updated_at: demoIso(0.8), comments: 8, review_comments: 3, incomingReviewState: 'APPROVED', approvedBy: ['amy', 'ben'] }),
+    demoPR({ id: 1002, number: 835, title: 'Fix retry edge case in webhook processor', repo_full_name: 'acme/backend-api', created_at: demoIso(9), updated_at: demoIso(4), comments: 11, review_comments: 5, incomingReviewState: 'CHANGES_REQUESTED' }),
+    demoPR({ id: 1003, number: 829, title: 'Add keyboard shortcuts to list filters', repo_full_name: 'acme/web-client', created_at: demoIso(30), updated_at: demoIso(12), comments: 4, review_comments: 2, incomingReviewState: 'COMMENTED' })
+  ],
+  draftPRs: [
+    demoPR({ id: 1004, number: 846, title: 'Refine empty states for onboarding flow', repo_full_name: 'acme/web-client', draft: true, created_at: demoIso(1.5), updated_at: demoIso(1.1), comments: 0, review_comments: 0 })
+  ].map(pr => ({ ...pr, draft: true })),
+  reviewedPRs: [
+    demoPR({ id: 1005, number: 818, title: 'Cache image transforms in worker queue', repo_full_name: 'acme/media-service', created_at: demoIso(20), updated_at: demoIso(6), comments: 6, review_comments: 7, myReviewState: 'APPROVED', approvedBy: ['you-demo'] }),
+    demoPR({ id: 1006, number: 812, title: 'Unify status chip styles across pages', repo_full_name: 'acme/design-system', created_at: demoIso(32), updated_at: demoIso(15), comments: 3, review_comments: 2, myReviewState: 'COMMENTED' })
+  ],
+  reviewRequestedBase: [
+    demoPR({ id: 1007, number: 851, title: 'Migrate preferences to encrypted storage', repo_full_name: 'acme/security', created_at: demoIso(1.2), updated_at: demoIso(0.9), comments: 2, review_comments: 1 }),
+    demoPR({ id: 1008, number: 848, title: 'Reduce API chatter on notification refresh', repo_full_name: 'acme/desktop-app', created_at: demoIso(2.3), updated_at: demoIso(1.7), comments: 1, review_comments: 0 })
+  ],
+  squadActivityBase: [
+    demoPR({ id: 1009, number: 839, title: 'Introduce release checklist automation', repo_full_name: 'acme/devops', created_at: demoIso(10), updated_at: demoIso(8), comments: 5, review_comments: 1 }),
+    demoPR({ id: 1010, number: 832, title: 'Harden token validation fallback behavior', repo_full_name: 'acme/desktop-app', created_at: demoIso(16), updated_at: demoIso(7), comments: 7, review_comments: 3 })
+  ],
+  myPRComments: [
+    {
+      id: 'demo-c-1',
+      prNumber: 842,
+      prTitle: 'Improve launch time of command palette',
+      prRepoFullName: 'acme/desktop-app',
+      prHtmlUrl: 'https://github.com/acme/desktop-app/pull/842',
+      comment: {
+        id: 5001,
+        user: { login: 'amy', avatar_url: 'https://avatars.githubusercontent.com/u/810438?v=4', html_url: 'https://github.com/amy' },
+        body: 'Looks great. Could we include a quick benchmark note in the description?',
+        html_url: 'https://github.com/acme/desktop-app/pull/842#discussion_r5001',
+        created_at: demoIso(0.7)
+      },
+      read: false,
+      isResolved: false
+    },
+    {
+      id: 'demo-c-2',
+      prNumber: 835,
+      prTitle: 'Fix retry edge case in webhook processor',
+      prRepoFullName: 'acme/backend-api',
+      prHtmlUrl: 'https://github.com/acme/backend-api/pull/835',
+      comment: {
+        id: 5002,
+        user: { login: 'ben', avatar_url: 'https://avatars.githubusercontent.com/u/9919?v=4', html_url: 'https://github.com/ben' },
+        body: 'I left one question about the timeout default, then this should be ready.',
+        html_url: 'https://github.com/acme/backend-api/pull/835#discussion_r5002',
+        created_at: demoIso(3.5)
+      },
+      read: true,
+      isResolved: false
+    }
+  ],
+  reviewReplies: [
+    {
+      id: 'demo-r-1',
+      prNumber: 818,
+      prTitle: 'Cache image transforms in worker queue',
+      prRepoFullName: 'acme/media-service',
+      prHtmlUrl: 'https://github.com/acme/media-service/pull/818',
+      myComment: {
+        body: 'Can we short-circuit if the resize dimensions already exist?',
+        html_url: 'https://github.com/acme/media-service/pull/818#discussion_r4991'
+      },
+      comment: {
+        id: 5003,
+        user: { login: 'nina', avatar_url: 'https://avatars.githubusercontent.com/u/49699333?v=4', html_url: 'https://github.com/nina' },
+        body: 'Yep, pushed a follow-up commit for that path.',
+        html_url: 'https://github.com/acme/media-service/pull/818#discussion_r5003',
+        created_at: demoIso(2.2)
+      },
+      read: false,
+      isResolved: false
+    }
+  ],
+  events: [
+    {
+      id: 'demo-e-1',
+      type: 'review_requested' as const,
+      title: 'Migrate preferences to encrypted storage',
+      body: 'Review requested - acme/security',
+      url: 'https://github.com/acme/security/pull/851',
+      pr: demoPR({ id: 1007, number: 851, title: 'Migrate preferences to encrypted storage', repo_full_name: 'acme/security', created_at: demoIso(1.2), updated_at: demoIso(0.9) }),
+      actor: { login: 'sarah', avatar_url: 'https://avatars.githubusercontent.com/u/229422?v=4', html_url: 'https://github.com/sarah' },
+      timestamp: demoIso(0.9),
+      read: false
+    },
+    {
+      id: 'demo-e-2',
+      type: 'reply_to_comment' as const,
+      title: 'Cache image transforms in worker queue',
+      body: 'nina: "Yep, pushed a follow-up commit for that path."',
+      url: 'https://github.com/acme/media-service/pull/818#discussion_r5003',
+      pr: demoPR({ id: 1005, number: 818, title: 'Cache image transforms in worker queue', repo_full_name: 'acme/media-service', created_at: demoIso(20), updated_at: demoIso(6) }),
+      actor: { login: 'nina', avatar_url: 'https://avatars.githubusercontent.com/u/49699333?v=4', html_url: 'https://github.com/nina' },
+      timestamp: demoIso(2.2),
+      read: false
+    }
+  ],
+  lastPollAt: demoIso(0.3)
+}
+
+const DEMO_REVIEW_REQUEST_TARGETS: Record<number, string[]> = {
+  851: ['you-demo', 'acme/platform'],
+  848: ['acme/desktop-foundations']
+}
+
+const DEMO_SQUAD_TARGETS: Record<number, string[]> = {
+  839: ['acme/release-ops'],
+  832: ['acme/platform', 'acme/core-squad']
+}
+
+function filterDemoPRsByTargets(prs: PullRequest[], targetMap: Record<number, string[]>, filters: string[]): PullRequest[] {
+  if (filters.length === 0) return prs
+  return prs.filter(pr => {
+    const targets = targetMap[pr.number] || []
+    return filters.some(filter => targets.includes(filter))
+  })
+}
+
+function getDemoCollections(settings: AppSettings) {
+  const filters = settings.reviewRequestedFilter || []
+  const selectedTeams = filters.filter(filter => filter.includes('/'))
+
+  return {
+    reviewRequestedPRs: filterDemoPRsByTargets(DEMO_DATA.reviewRequestedBase, DEMO_REVIEW_REQUEST_TARGETS, filters),
+    squadActivityPRs: filterDemoPRsByTargets(
+      DEMO_DATA.squadActivityBase,
+      DEMO_SQUAD_TARGETS,
+      selectedTeams.length > 0 ? selectedTeams : DEMO_TEAM_OPTIONS
+    )
+  }
+}
+
+const DEMO_COLLECTIONS = getDemoCollections(INITIAL_SETTINGS)
+
 export const useStore = create<AppState>((set, get) => ({
-  token: loadFromStorage<string | null>('gitbar_token', null),
-  username: loadFromStorage<string | null>('gitbar_username', null),
-  avatarUrl: loadFromStorage<string | null>('gitbar_avatar', null),
+  token: DEMO_MODE ? 'demo-token' : loadFromStorage<string | null>('gitbar_token', null),
+  username: DEMO_MODE ? DEMO_DATA.username : loadFromStorage<string | null>('gitbar_username', null),
+  avatarUrl: DEMO_MODE ? DEMO_DATA.avatarUrl : loadFromStorage<string | null>('gitbar_avatar', null),
   isValidating: false,
   isPolling: false,
-  lastPollAt: loadFromStorage<string | null>('gitbar_last_poll', null),
+  lastPollAt: DEMO_MODE ? DEMO_DATA.lastPollAt : loadFromStorage<string | null>('gitbar_last_poll', null),
   pollError: null,
 
-  myPRs: [],
-  draftPRs: [],
-  reviewedPRs: [],
-  reviewRequestedPRs: [],
-  squadActivityPRs: [],
-  userTeams: loadFromStorage<string[]>('gitbar_user_teams', []),
+  myPRs: DEMO_MODE ? DEMO_DATA.myPRs : [],
+  draftPRs: DEMO_MODE ? DEMO_DATA.draftPRs : [],
+  reviewedPRs: DEMO_MODE ? DEMO_DATA.reviewedPRs : [],
+  reviewRequestedPRs: DEMO_MODE ? DEMO_COLLECTIONS.reviewRequestedPRs : [],
+  squadActivityPRs: DEMO_MODE ? DEMO_COLLECTIONS.squadActivityPRs : [],
+  userTeams: DEMO_MODE ? DEMO_TEAM_OPTIONS : loadFromStorage<string[]>('gitbar_user_teams', []),
 
-  myPRComments: loadFromStorage<CommentActivity[]>('gitbar_my_pr_comments', []),
-  reviewReplies: loadFromStorage<CommentActivity[]>('gitbar_review_replies', []),
+  myPRComments: DEMO_MODE ? DEMO_DATA.myPRComments : loadFromStorage<CommentActivity[]>('gitbar_my_pr_comments', []),
+  reviewReplies: DEMO_MODE ? DEMO_DATA.reviewReplies : loadFromStorage<CommentActivity[]>('gitbar_review_replies', []),
   ignoredPRs: new Set<string>(loadFromStorage<string[]>('gitbar_ignored_prs', [])),
   dismissedComments: new Set<string>(loadFromStorage<string[]>('gitbar_dismissed_comments', [])),
 
-  events: loadFromStorage<NotificationEvent[]>('gitbar_events', []),
-  badgeCount: loadFromStorage<number>('gitbar_badge', 0),
+  events: DEMO_MODE ? DEMO_DATA.events : loadFromStorage<NotificationEvent[]>('gitbar_events', []),
+  badgeCount: DEMO_MODE ? DEMO_DATA.events.filter(e => !e.read).length : loadFromStorage<number>('gitbar_badge', 0),
 
   tabs: migrateTabs(loadFromStorage<TabConfig[]>('gitbar_tabs', DEFAULT_TABS)),
-  settings: { ...DEFAULT_SETTINGS, ...loadFromStorage<Partial<AppSettings>>('gitbar_settings', {}) },
+  settings: INITIAL_SETTINGS,
 
-  view: loadFromStorage<string | null>('gitbar_token', null) ? 'main' : 'setup',
+  view: DEMO_MODE ? 'main' : (loadFromStorage<string | null>('gitbar_token', null) ? 'main' : 'setup'),
   activeTab: 'my-prs',
 
   pendingUpdateVersion: null,
@@ -128,21 +323,23 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearToken: () => {
     get().stopPolling()
-    localStorage.removeItem('gitbar_token')
-    localStorage.removeItem('gitbar_username')
-    localStorage.removeItem('gitbar_avatar')
-    localStorage.removeItem('gitbar_events')
-    localStorage.removeItem('gitbar_badge')
-    localStorage.removeItem('gitbar_last_poll')
-    localStorage.removeItem('gitbar_user_teams')
-    localStorage.removeItem('gitbar_my_pr_comments')
-    localStorage.removeItem('gitbar_review_replies')
-    localStorage.removeItem('gitbar_team_members')
-    window.gitbar?.storeRemove('gitbar_token')
-    window.gitbar?.storeRemove('gitbar_username')
-    window.gitbar?.storeRemove('gitbar_avatar')
-    window.gitbar?.storeRemove('gitbar_settings')
-    window.gitbar?.storeRemove('gitbar_user_teams')
+    if (!DEMO_MODE) {
+      localStorage.removeItem(storageKey('gitbar_token'))
+      localStorage.removeItem(storageKey('gitbar_username'))
+      localStorage.removeItem(storageKey('gitbar_avatar'))
+      localStorage.removeItem(storageKey('gitbar_events'))
+      localStorage.removeItem(storageKey('gitbar_badge'))
+      localStorage.removeItem(storageKey('gitbar_last_poll'))
+      localStorage.removeItem(storageKey('gitbar_user_teams'))
+      localStorage.removeItem(storageKey('gitbar_my_pr_comments'))
+      localStorage.removeItem(storageKey('gitbar_review_replies'))
+      localStorage.removeItem(storageKey('gitbar_team_members'))
+      window.gitbar?.storeRemove(storageKey('gitbar_token'))
+      window.gitbar?.storeRemove(storageKey('gitbar_username'))
+      window.gitbar?.storeRemove(storageKey('gitbar_avatar'))
+      window.gitbar?.storeRemove(storageKey('gitbar_settings'))
+      window.gitbar?.storeRemove(storageKey('gitbar_user_teams'))
+    }
     set({
       token: null,
       username: null,
@@ -157,7 +354,7 @@ export const useStore = create<AppState>((set, get) => ({
       userTeams: [],
       events: [],
       badgeCount: 0,
-      view: 'setup'
+      view: DEMO_MODE ? 'main' : 'setup'
     })
     window.gitbar?.updateBadge(0)
   },
@@ -239,7 +436,16 @@ export const useStore = create<AppState>((set, get) => ({
   updateSettings: (partial: Partial<AppSettings>) => {
     const settings = { ...get().settings, ...partial }
     saveToStorage('gitbar_settings', settings)
-    set({ settings })
+    if (DEMO_MODE) {
+      const demoCollections = getDemoCollections(settings)
+      set({
+        settings,
+        reviewRequestedPRs: demoCollections.reviewRequestedPRs,
+        squadActivityPRs: demoCollections.squadActivityPRs
+      })
+    } else {
+      set({ settings })
+    }
 
     if (partial.pollingInterval && pollTimer) {
       get().stopPolling()
@@ -253,6 +459,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   poll: async () => {
+    if (DEMO_MODE) return
     const { token, username, settings } = get()
     if (!token || !username) return
 
@@ -522,6 +729,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   startPolling: () => {
+    if (DEMO_MODE) return
     const { settings, poll } = get()
     if (pollTimer) clearInterval(pollTimer)
     poll()
@@ -538,6 +746,9 @@ export const useStore = create<AppState>((set, get) => ({
 
 // Hydrate critical data from persistent (main-process) store on startup
 if (typeof window !== 'undefined' && window.gitbar) {
+  if (DEMO_MODE) {
+    useStore.setState({ view: 'main', pollError: null, isPolling: false })
+  } else {
   Promise.all([
     loadFromPersistentStore<string | null>('gitbar_token', null),
     loadFromPersistentStore<string | null>('gitbar_username', null),
@@ -571,4 +782,5 @@ if (typeof window !== 'undefined' && window.gitbar) {
       useStore.getState().startPolling()
     }
   })
+  }
 }

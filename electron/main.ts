@@ -6,6 +6,8 @@ import { initAnalytics, track } from './analytics'
 
 initAnalytics()
 
+const DEMO_MODE = !app.isPackaged && process.env.VITE_GITBAR_DEMO === '1'
+
 const STORE_PATH = path.join(app.getPath('userData'), 'gitbar-data.json')
 
 function readStore(): Record<string, any> {
@@ -196,6 +198,9 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  if (DEMO_MODE) {
+    showWindow()
+  }
   setupAutoUpdater({
     prepareForQuit: () => {
       tray?.destroy()

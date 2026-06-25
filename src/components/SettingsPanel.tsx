@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useStore } from '../store'
+import { useStore, DEMO_MODE, DEMO_TEAM_OPTIONS, DEMO_USER_OPTIONS } from '../store'
 import { ChevronLeft, DragHandle, PlusIcon, TrashIcon } from './Icons'
 import { AutocompleteInput } from './AutocompleteInput'
 import type { TabConfig, AppSettings } from '../types'
@@ -254,6 +254,21 @@ function ReviewFilterSection({
   const [teamError, setTeamError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      setDiscoveredTeams(DEMO_TEAM_OPTIONS.map(fullSlug => {
+        const [org, slug] = fullSlug.split('/')
+        return {
+          slug,
+          org,
+          name: slug.replace(/-/g, ' '),
+          fullSlug
+        }
+      }))
+      setLoadingTeams(false)
+      setTeamError(null)
+      return
+    }
+
     if (!token) return
     setLoadingTeams(true)
     setTeamError(null)
@@ -296,6 +311,11 @@ function ReviewFilterSection({
     .slice(0, 10)
 
   const fetchTeamAndUserSuggestions = useCallback(async (query: string) => {
+    if (DEMO_MODE) {
+      const demoOptions = [...DEMO_TEAM_OPTIONS, ...DEMO_USER_OPTIONS]
+      const unique = [...new Set(demoOptions)].filter(option => !filters.includes(option))
+      return query ? unique.filter(option => option.toLowerCase().includes(query.toLowerCase())) : unique
+    }
     if (!token) return []
     const results: string[] = []
     const orgs = await fetchUserOrgs(token)
@@ -416,7 +436,7 @@ function ReviewFilterSection({
           {loadingTeams ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
               <span className="spinner" style={{ width: 14, height: 14 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Fetching from GitHub…</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{DEMO_MODE ? 'Loading demo teams…' : 'Fetching from GitHub…'}</span>
             </div>
           ) : teamError ? (
             <div style={{ padding: '8px 0' }}>
