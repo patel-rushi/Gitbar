@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { PRList } from './PRList'
 import { PinnedFilters, CustomFilterTab } from './PinnedFilters'
+import { ReviewFilterSection } from './ReviewFilterSection'
 import { SegmentedToggle } from './SegmentedToggle'
 import { CommentsList } from './CommentsList'
 import { GearIconSimple, RefreshIcon, CheckIcon } from './Icons'
@@ -11,7 +12,8 @@ import { formatDistanceToNow } from 'date-fns'
 
 export function MainPanel() {
   const {
-    username, avatarUrl, activeTab, setActiveTab, setView,
+    username, avatarUrl, activeTab, setActiveTab, setView, setSettingsSection, setSettingsOrigin,
+    settings, updateSettings,
     myPRs, draftPRs, reviewedPRs, reviewRequestedPRs,
     myPRComments, reviewReplies,
     events, badgeCount, markAllRead, pollError,
@@ -25,10 +27,14 @@ export function MainPanel() {
 
   const [myPRsSegment, setMyPRsSegment] = useState<'prs' | 'comments'>('prs')
   const [reviewedSegment, setReviewedSegment] = useState<'prs' | 'replies'>('prs')
+  const [showReviewConfig, setShowReviewConfig] = useState(false)
   const [showUpdateInfo, setShowUpdateInfo] = useState(false)
 
   const selectTab = (id: string) => {
     setShowUpdateInfo(false)
+    if (id !== 'review-requested') {
+      setShowReviewConfig(false)
+    }
     setActiveTab(id)
   }
 
@@ -39,9 +45,11 @@ export function MainPanel() {
   const visibleTabs = [...tabs]
     .filter(t => t.visible)
     .sort((a, b) => a.order - b.order)
+  const contentTabs = visibleTabs.filter(t => t.id !== 'pinned')
 
   const unreadComments = myPRComments.filter(c => !c.read && !c.isResolved).length
   const unreadReplies = visibleReviewReplies.filter(c => !c.read && !c.isResolved).length
+  const reviewFilterCount = settings.reviewRequestedFilter?.length || 0
 
   const unreadByTab: Record<string, boolean> = {
     'my-prs': events.some(e => !e.read && e.type === 'reply_to_pr') || unreadComments > 0,
@@ -92,7 +100,25 @@ export function MainPanel() {
           </>
         )
       case 'review-requested':
-        return <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." showIncomingReviewState showReviewRequestedState allowIgnore timeSource="created" />
+        if (showReviewConfig) {
+          return <ReviewFilterSection settings={settings} updateSettings={updateSettings} onBack={() => setShowReviewConfig(false)} />
+        }
+        return (
+          <div className="review-requested-view">
+            <button className="review-requested-config-row" onClick={() => setShowReviewConfig(true)}>
+              <span className="review-requested-config-copy">
+                <span className="review-requested-config-title">Review Requested Filters</span>
+                <span className="review-requested-config-subtitle">
+                  {reviewFilterCount > 0
+                    ? `${reviewFilterCount} active filter${reviewFilterCount > 1 ? 's' : ''}`
+                    : 'Showing all requests'}
+                </span>
+              </span>
+              <span className="review-requested-config-cta">Configure</span>
+            </button>
+            <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." showIncomingReviewState showReviewRequestedState allowIgnore timeSource="created" />
+          </div>
+        )
       case 'pinned':
         return <PinnedFilters />
       default:
@@ -135,23 +161,40 @@ export function MainPanel() {
           <button className="icon-btn" onClick={() => poll()} title="Refresh" disabled={isPolling}>
             {isPolling ? <span className="spinner" /> : <RefreshIcon />}
           </button>
-          <button className="icon-btn" onClick={() => setView('settings')} title="Settings">
+          <button className="icon-btn" onClick={() => { setSettingsOrigin('settings'); setSettingsSection('main'); setView('settings') }} title="Settings">
             <GearIconSimple />
           </button>
         </div>
       </div>
 
-      <div className="tabs">
-        {visibleTabs.map(tab => (
+      <div className="tabs-wrap">
+        <div className="tabs">
+          {contentTabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`tab${!showUpdateInfo && activeTab === tab.id ? ' active' : ''}`}
+              onClick={() => selectTab(tab.id)}
+            >
+              {tab.label}
+              {unreadByTab[tab.id] && <span className="tab-badge" />}
+            </button>
+          ))}
           <button
-            key={tab.id}
-            className={`tab${!showUpdateInfo && activeTab === tab.id ? ' active' : ''}`}
-            onClick={() => selectTab(tab.id)}
+            className={`tab tab-custom-filters-shortcut${!showUpdateInfo && activeTab === 'pinned' ? ' active' : ''}`}
+            onClick={() => selectTab('pinned')}
+            title="Open Custom Filters"
           >
-            {tab.label}
-            {unreadByTab[tab.id] && <span className="tab-badge" />}
+            Custom Filters
           </button>
-        ))}
+          <button
+            className="tab tab-customize-shortcut"
+            onClick={() => { setSettingsOrigin('main'); setSettingsSection('tabs'); setView('settings') }}
+            title="Open Customize Tabs"
+          >
+            Customize Tabs
+          </button>
+        </div>
+        <div className="tabs-scroll-cue" aria-hidden="true">Scroll &gt;</div>
       </div>
 
       {showUpdateInfo && pendingUpdateVersion ? <UpdateInfo /> : renderContent()}

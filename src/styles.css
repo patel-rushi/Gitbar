@@ -460,16 +460,40 @@ html, body, #root {
 }
 
 /* Tabs */
+.tabs-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+}
+
 .tabs {
   display: flex;
+  flex: 1;
+  min-width: 0;
   padding: 8px 12px 0;
   gap: 2px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 
 .tabs::-webkit-scrollbar {
   display: none;
+}
+
+.tabs-scroll-cue {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+  pointer-events: none;
+  background: rgba(45, 45, 45, 0.82);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-top: 2px;
 }
 
 .tab {
@@ -496,6 +520,38 @@ html, body, #root {
   background: var(--accent-dim);
 }
 
+.tab.tab-customize-shortcut {
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+}
+
+.tab.tab-customize-shortcut:hover {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.35);
+  color: var(--accent);
+}
+
+.tab.tab-custom-filters-shortcut {
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+}
+
+.tab.tab-custom-filters-shortcut:hover {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.35);
+  color: var(--accent);
+}
+
+.tab.tab-custom-filters-shortcut.active {
+  background: var(--accent-dim);
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--accent);
+}
+
 .tab-badge {
   position: absolute;
   top: 2px;
@@ -504,6 +560,80 @@ html, body, #root {
   height: 6px;
   border-radius: 50%;
   background: var(--red);
+}
+
+.review-requested-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-requested-config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 9px 11px;
+  margin: 6px 10px 6px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-secondary);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.review-requested-config-row:hover {
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.16), rgba(88, 166, 255, 0.06));
+  border-color: rgba(88, 166, 255, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 28px rgba(0, 0, 0, 0.26);
+  color: var(--accent);
+}
+
+.review-requested-config-copy {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.review-requested-config-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.review-requested-config-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-requested-config-cta {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.review-requested-config-row:hover .review-requested-config-cta {
+  color: var(--accent);
+  border-color: rgba(88, 166, 255, 0.35);
+  background: rgba(88, 166, 255, 0.1);
 }
 
 /* PR List */

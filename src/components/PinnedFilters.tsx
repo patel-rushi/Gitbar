@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useStore, DEMO_MODE } from '../store'
 import type { PullRequest, CustomFilter } from '../types'
 import { fetchFilteredPRs, fetchRepoLabels, fetchOrgRepos, fetchOrgMembers, fetchUserOrgs } from '../github'
@@ -8,7 +8,6 @@ import { InboxIcon, PlusIcon, TrashIcon, PencilIcon } from './Icons'
 
 interface SavedFilter extends CustomFilter {
   id: string
-  isDefault?: boolean
 }
 
 const PINNED_FILTERS_KEY = DEMO_MODE ? 'gitbar_custom_filters_demo' : 'gitbar_custom_filters'
@@ -17,12 +16,7 @@ function loadFilters(): SavedFilter[] {
   try {
     const raw = localStorage.getItem(PINNED_FILTERS_KEY)
     const parsed: SavedFilter[] = raw ? JSON.parse(raw) : []
-    let foundDefault = false
-    return parsed.map(f => {
-      const isDefault = !!f.isDefault && !foundDefault
-      if (isDefault) foundDefault = true
-      return { ...f, isDefault }
-    })
+    return parsed
   } catch {
     return []
   }
@@ -37,21 +31,20 @@ export function PinnedFilters() {
   const { token, tabs, updateTabs } = useStore()
   const [filters, setFilters] = useState<SavedFilter[]>(loadFilters)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
-  const didAutoOpenDefault = useRef(false)
   const [results, setResults] = useState<PullRequest[]>([])
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftAsTab, setDraftAsTab] = useState(false)
   const [draft, setDraft] = useState<Omit<SavedFilter, 'id'>>({
     name: '',
     labels: [],
     repos: [],
     authors: [],
-    query: '',
-    isDefault: false
+    query: ''
   })
 
-  const emptyDraft = (): Omit<SavedFilter, 'id'> => ({ name: '', labels: [], repos: [], authors: [], query: '', isDefault: false })
+  const emptyDraft = (): Omit<SavedFilter, 'id'> => ({ name: '', labels: [], repos: [], authors: [], query: '' })
   const tabIdForFilter = (id: string) => `custom-filter-${id}`
   const toTabFilter = (filter: SavedFilter): CustomFilter => ({
     name: filter.name,
@@ -70,27 +63,37 @@ export function PinnedFilters() {
       return
     }
 
-    const maxOrder = tabs.length ? Math.max(...tabs.map(t => t.order)) : 0
-    updateTabs([
-      ...tabs,
+    const pinned = tabs.find(t => t.id === 'pinned' && !t.isCustom)
+    const withoutPinned = [...tabs]
+      .filter(t => !(t.id === 'pinned' && !t.isCustom))
+      .sort((a, b) => a.order - b.order)
+
+    const nextTabs = [
+      ...withoutPinned,
       {
         id: tabId,
         label: filter.name,
         visible: true,
-        order: maxOrder + 1,
+        order: withoutPinned.length,
         isCustom: true,
         filter: nextFilter
-      }
-    ])
+      },
+      ...(pinned ? [pinned] : [])
+    ]
+
+    updateTabs(nextTabs.map((t, i) => ({ ...t, order: i })))
   }
 
   const removeCustomFilterTab = (filterId: string) => {
     const tabId = tabIdForFilter(filterId)
-    const updated = tabs.filter(t => t.id !== tabId)
+    const hadTarget = tabs.some(t => t.id === tabId)
+    const pinned = tabs.find(t => t.id === 'pinned' && !t.isCustom)
+    const updated = tabs
+      .filter(t => t.id !== tabId && !(t.id === 'pinned' && !t.isCustom))
       .sort((a, b) => a.order - b.order)
-      .map((t, i) => ({ ...t, order: i }))
-    if (updated.length !== tabs.length) {
-      updateTabs(updated)
+    const next = pinned ? [...updated, pinned] : updated
+    if (hadTarget) {
+      updateTabs(next.map((t, i) => ({ ...t, order: i })))
     }
   }
 
@@ -99,18 +102,21 @@ export function PinnedFilters() {
   const startCreate = () => {
     setEditingId(null)
     setDraft(emptyDraft())
+    setDraftAsTab(false)
     setEditing(true)
   }
 
   const startEdit = (f: SavedFilter) => {
     setEditingId(f.id)
-    setDraft({ name: f.name, labels: f.labels, repos: f.repos, authors: f.authors, query: f.query ?? '', isDefault: !!f.isDefault })
+    setDraft({ name: f.name, labels: f.labels, repos: f.repos, authors: f.authors, query: f.query ?? '' })
+    setDraftAsTab(isTabbed(f.id))
     setEditing(true)
   }
 
   const cancelEdit = () => {
     setEditing(false)
     setEditingId(null)
+    setDraftAsTab(false)
     setDraft(emptyDraft())
   }
 
@@ -126,21 +132,13 @@ export function PinnedFilters() {
     let cancelled = false
     window.gitbar?.storeGet(PINNED_FILTERS_KEY).then((stored: SavedFilter[] | null) => {
       if (cancelled || !stored || !Array.isArray(stored)) return
-      const normalized = stored.map(f => ({ ...f, isDefault: !!f.isDefault }))
-      setFilters(normalized)
-      localStorage.setItem(PINNED_FILTERS_KEY, JSON.stringify(normalized))
+      setFilters(stored)
+      localStorage.setItem(PINNED_FILTERS_KEY, JSON.stringify(stored))
     }).catch(() => {})
     return () => {
       cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    if (didAutoOpenDefault.current) return
-    didAutoOpenDefault.current = true
-    const defaultFilter = filters.find(f => f.isDefault)
-    if (defaultFilter) setActiveFilter(defaultFilter.id)
-  }, [filters])
 
   const [filterError, setFilterError] = useState<string | null>(null)
 
@@ -166,21 +164,21 @@ export function PinnedFilters() {
     if (!draft.name.trim()) return
     const id = editingId ?? Date.now().toString()
     const nextFilter = { ...draft, id }
-    let updated = editingId
+    const updated = editingId
       ? filters.map(f => (f.id === editingId ? nextFilter : f))
       : [...filters, nextFilter]
-    if (nextFilter.isDefault) {
-      updated = updated.map(f => ({ ...f, isDefault: f.id === id }))
-    }
     setFilters(updated)
     saveFilters(updated)
     setEditing(false)
     setEditingId(null)
+    setDraftAsTab(false)
     setDraft(emptyDraft())
     setActiveFilter(id)
 
-    if (isTabbed(id)) {
+    if (draftAsTab) {
       upsertCustomFilterTab(nextFilter)
+    } else {
+      removeCustomFilterTab(id)
     }
   }
 
@@ -246,12 +244,6 @@ export function PinnedFilters() {
     }
   }
 
-  const setDefaultFilter = (id: string | null) => {
-    const updated = filters.map(f => ({ ...f, isDefault: id ? f.id === id : false }))
-    setFilters(updated)
-    saveFilters(updated)
-  }
-
   if (editing) {
     return (
       <div className="pr-list" style={{ padding: '12px 16px' }}>
@@ -313,10 +305,10 @@ export function PinnedFilters() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
               <input
                 type="checkbox"
-                checked={!!draft.isDefault}
-                onChange={e => setDraft({ ...draft, isDefault: e.target.checked })}
+                checked={draftAsTab}
+                onChange={e => setDraftAsTab(e.target.checked)}
               />
-              <span>Open this filter by default in Custom Filters tab</span>
+              <span>Add as stand-alone tab</span>
             </label>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -387,8 +379,8 @@ export function PinnedFilters() {
               <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setActiveFilter(f.id)}>
                 <div className="pr-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>{f.name}</span>
-                  {f.isDefault && (
-                    <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>Default</span>
+                  {isTabbed(f.id) && (
+                    <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>Tab</span>
                   )}
                 </div>
                 <div className="pr-meta">
@@ -402,20 +394,17 @@ export function PinnedFilters() {
                 <PencilIcon />
               </button>
               <button
-                className="icon-btn"
-                onClick={() => setDefaultFilter(f.isDefault ? null : f.id)}
-                style={{ color: f.isDefault ? 'var(--accent)' : 'var(--text-secondary)' }}
-                title={f.isDefault ? 'Clear default filter' : 'Set as default filter'}
-              >
-                {f.isDefault ? '★' : '☆'}
-              </button>
-              <button
-                className="icon-btn"
+                className="btn-secondary"
                 onClick={() => (isTabbed(f.id) ? removeCustomFilterTab(f.id) : upsertCustomFilterTab(f))}
-                style={{ color: isTabbed(f.id) ? 'var(--accent)' : 'var(--text-secondary)' }}
-                title={isTabbed(f.id) ? 'Remove tab' : 'Make tab'}
+                style={{
+                  color: isTabbed(f.id) ? 'var(--accent)' : 'var(--text-secondary)',
+                  padding: '4px 8px',
+                  fontSize: 11,
+                  minWidth: 56
+                }}
+                title={isTabbed(f.id) ? 'Remove tab' : 'Add tab'}
               >
-                {isTabbed(f.id) ? '▣' : '□'}
+                {isTabbed(f.id) ? 'On Tab' : 'Add Tab'}
               </button>
               <button className="icon-btn" onClick={() => removeFilter(f.id)} style={{ color: 'var(--red)' }} title="Delete filter">
                 <TrashIcon />

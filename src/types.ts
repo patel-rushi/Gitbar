@@ -116,15 +116,20 @@ export interface AppState {
   settings: AppSettings
   
   view: 'setup' | 'main' | 'settings'
+  settingsSection: 'main' | 'tabs' | 'ignored-prs'
+  settingsOrigin: 'settings' | 'main'
   activeTab: string
 
   pendingUpdateVersion: string | null
 
   setToken: (token: string) => Promise<boolean>
   clearToken: () => void
+  clearAllData: () => void
   setPendingUpdate: (version: string | null) => void
   installPendingUpdate: () => void
   setView: (view: 'setup' | 'main' | 'settings') => void
+  setSettingsSection: (section: 'main' | 'tabs' | 'ignored-prs') => void
+  setSettingsOrigin: (origin: 'settings' | 'main') => void
   setActiveTab: (tab: string) => void
   markEventRead: (id: string) => void
   markAllRead: () => void

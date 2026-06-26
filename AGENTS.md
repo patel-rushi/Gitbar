@@ -43,6 +43,17 @@ Use demo mode when recording videos/screenshots and you want zero real PR/notifi
 - Demo persistence is namespaced with `*_demo` keys so real app token/settings/state are not affected.
 - Do not rely on hidden preview edits for recordings when demo mode is available.
 
+## Naming + agent hygiene
+- If a feature's UI label changes but behavior/data model stays the same, prefer keeping existing internal code names to avoid broad churn. Example: keep `PinnedFilters` / `gitbar_custom_filters` internals while showing "Custom Filters" in UI copy.
+- Keep Review Requested filter configuration inside the Review Requested tab itself, not in Settings. Use in-context guidance that explains users can control which PRs appear there.
+- Keep sign-out session-only. Revoke Token & Sign Out should disconnect the account but leave user customization and local data intact; provide a separate danger-styled full reset action for clearing everything.
+- Treat `AGENTS.md` as a living checklist for future diff agents. After any meaningful product change, add or update brief guidance that captures:
+	- user-visible naming decisions
+	- persistence guarantees (restart, update, sign out/in behavior)
+	- API or polling cost decisions (what was removed/limited and why)
+	- release-sensitive constraints
+- Do this proactively in the same change set when relevant so the user does not need to ask explicitly.
+
 ## Style & communication
 - User-facing copy (app text, changelog, release notes): short, casual, human. **No hyphens/em-dashes as punctuation** — write plainly.
 - Code: no narrating comments; comments only for non-obvious intent. Match existing patterns. Run `ReadLints` after edits.

@@ -49,6 +49,36 @@ function saveToStorage(key: string, value: any) {
   window.gitbar?.storeSet(scopedKey, value)
 }
 
+function removeFromStorage(key: string) {
+  const scopedKey = storageKey(key)
+  localStorage.removeItem(scopedKey)
+  window.gitbar?.storeRemove(scopedKey)
+}
+
+function clearAllPersistentData() {
+  const keys = [
+    'gitbar_token',
+    'gitbar_username',
+    'gitbar_avatar',
+    'gitbar_events',
+    'gitbar_badge',
+    'gitbar_last_poll',
+    'gitbar_user_teams',
+    'gitbar_my_pr_comments',
+    'gitbar_review_replies',
+    'gitbar_team_members',
+    'gitbar_ignored_prs',
+    'gitbar_dismissed_comments',
+    'gitbar_settings',
+    'gitbar_tabs',
+    'gitbar_custom_filters'
+  ]
+
+  for (const key of keys) {
+    removeFromStorage(key)
+  }
+}
+
 async function loadFromPersistentStore<T>(key: string, fallback: T): Promise<T> {
   const scopedKey = storageKey(key)
   try {
@@ -72,8 +102,12 @@ function migrateTabs(tabs: TabConfig[]): TabConfig[] {
     const maxOrder = tabs.length ? Math.max(...tabs.map(t => t.order)) : 0
     tabs.push({ id: 'pinned', label: 'Custom Filters', visible: true, order: maxOrder + 1, isCustom: false })
   }
-  tabs = tabs.map(t => (t.id === 'pinned' && !t.isCustom) ? { ...t, label: 'Custom Filters' } : t)
-  tabs = [...tabs].sort((a, b) => a.order - b.order).map((t, i) => ({ ...t, order: i }))
+  tabs = tabs.map(t => (t.id === 'pinned' && !t.isCustom) ? { ...t, label: 'Custom Filters', visible: true } : t)
+  const pinned = tabs.find(t => t.id === 'pinned' && !t.isCustom)
+  const ordered = tabs
+    .filter(t => !(t.id === 'pinned' && !t.isCustom))
+    .sort((a, b) => a.order - b.order)
+  tabs = [...ordered, ...(pinned ? [pinned] : [])].map((t, i) => ({ ...t, order: i }))
   saveToStorage('gitbar_tabs', tabs)
   return tabs
 }
@@ -278,6 +312,8 @@ export const useStore = create<AppState>((set, get) => ({
   settings: INITIAL_SETTINGS,
 
   view: DEMO_MODE ? 'main' : (loadFromStorage<string | null>('gitbar_token', null) ? 'main' : 'setup'),
+  settingsSection: 'main',
+  settingsOrigin: 'settings',
   activeTab: 'my-prs',
 
   pendingUpdateVersion: null,
@@ -308,23 +344,6 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearToken: () => {
     get().stopPolling()
-    if (!DEMO_MODE) {
-      localStorage.removeItem(storageKey('gitbar_token'))
-      localStorage.removeItem(storageKey('gitbar_username'))
-      localStorage.removeItem(storageKey('gitbar_avatar'))
-      localStorage.removeItem(storageKey('gitbar_events'))
-      localStorage.removeItem(storageKey('gitbar_badge'))
-      localStorage.removeItem(storageKey('gitbar_last_poll'))
-      localStorage.removeItem(storageKey('gitbar_user_teams'))
-      localStorage.removeItem(storageKey('gitbar_my_pr_comments'))
-      localStorage.removeItem(storageKey('gitbar_review_replies'))
-      localStorage.removeItem(storageKey('gitbar_team_members'))
-      window.gitbar?.storeRemove(storageKey('gitbar_token'))
-      window.gitbar?.storeRemove(storageKey('gitbar_username'))
-      window.gitbar?.storeRemove(storageKey('gitbar_avatar'))
-      window.gitbar?.storeRemove(storageKey('gitbar_settings'))
-      window.gitbar?.storeRemove(storageKey('gitbar_user_teams'))
-    }
     set({
       token: null,
       username: null,
@@ -335,15 +354,52 @@ export const useStore = create<AppState>((set, get) => ({
       reviewRequestedPRs: [],
       myPRComments: [],
       reviewReplies: [],
+      events: [],
+      badgeCount: 0,
+      lastPollAt: null,
+      view: DEMO_MODE ? 'main' : 'setup'
+    })
+    window.gitbar?.updateBadge(0)
+  },
+
+  clearAllData: () => {
+    get().stopPolling()
+    clearAllPersistentData()
+    set({
+      token: null,
+      username: null,
+      avatarUrl: null,
+      myPRs: [],
+      draftPRs: [],
+      reviewedPRs: [],
+      reviewRequestedPRs: [],
+      myPRComments: [],
+      reviewReplies: [],
+      ignoredPRs: new Set<string>(),
+      dismissedComments: new Set<string>(),
       userTeams: [],
       events: [],
       badgeCount: 0,
+      lastPollAt: null,
+      settings: DEFAULT_SETTINGS,
+      tabs: migrateTabs([
+        { id: 'my-prs', label: 'My PRs', visible: true, order: 0, isCustom: false },
+        { id: 'drafts', label: 'Drafts', visible: true, order: 1, isCustom: false },
+        { id: 'reviewed', label: 'Reviewed by Me', visible: true, order: 2, isCustom: false },
+        { id: 'review-requested', label: 'Review Requested', visible: true, order: 3, isCustom: false },
+        { id: 'pinned', label: 'Custom Filters', visible: true, order: 4, isCustom: false }
+      ]),
+      activeTab: 'my-prs',
+      settingsSection: 'main',
+      settingsOrigin: 'settings',
       view: DEMO_MODE ? 'main' : 'setup'
     })
     window.gitbar?.updateBadge(0)
   },
 
   setView: (view) => set({ view }),
+  setSettingsSection: (settingsSection) => set({ settingsSection }),
+  setSettingsOrigin: (settingsOrigin) => set({ settingsOrigin }),
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   markEventRead: (id: string) => {
@@ -734,10 +790,11 @@ if (typeof window !== 'undefined' && window.gitbar) {
     loadFromPersistentStore<string | null>('gitbar_username', null),
     loadFromPersistentStore<string | null>('gitbar_avatar', null),
     loadFromPersistentStore<Partial<AppSettings>>('gitbar_settings', {}),
+    loadFromPersistentStore<TabConfig[]>('gitbar_tabs', DEFAULT_TABS),
     loadFromPersistentStore<string[]>('gitbar_user_teams', []),
     loadFromPersistentStore<string[]>('gitbar_ignored_prs', []),
     loadFromPersistentStore<string[]>('gitbar_dismissed_comments', []),
-  ]).then(([token, username, avatarUrl, settings, userTeams, ignoredPrs, dismissedComments]) => {
+  ]).then(([token, username, avatarUrl, settings, tabs, userTeams, ignoredPrs, dismissedComments]) => {
     // Always restore dismissal state — localStorage isn't reliably persisted
     // across restarts, so these live in the main-process store.
     const dismissalPatch: Partial<AppState> = {}
@@ -748,6 +805,10 @@ if (typeof window !== 'undefined' && window.gitbar) {
       dismissalPatch.dismissedComments = new Set([...useStore.getState().dismissedComments, ...dismissedComments])
     }
     if (Object.keys(dismissalPatch).length > 0) useStore.setState(dismissalPatch)
+
+    if (Array.isArray(tabs) && tabs.length > 0) {
+      useStore.setState({ tabs: migrateTabs(tabs) })
+    }
 
     const currentToken = useStore.getState().token
     if (!currentToken && token) {

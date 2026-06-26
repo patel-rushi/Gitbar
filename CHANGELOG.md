@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.9
+- Custom filters can now become stand-alone tabs.
+- Review Requested filter setup now opens directly from that tab.
+- Sign out now keeps your local customization and ignored items.
+- Added a separate clear-all-data reset for fresh starts.
+
 ## v1.2.8
 - Review Requested now shows review status when available, so you can spot approved, commented, or changes requested PRs faster.
 - You can set a default pinned filter and GitBar opens it automatically when you go to the Pinned tab.
