@@ -129,54 +129,54 @@ const DEMO_DATA = {
   username: 'you-demo',
   avatarUrl: 'https://avatars.githubusercontent.com/u/583231?v=4',
   myPRs: [
-    demoPR({ id: 1001, number: 842, title: 'Improve launch time of command palette', repo_full_name: 'acme/desktop-app', created_at: demoIso(3), updated_at: demoIso(0.8), comments: 8, review_comments: 3, incomingReviewState: 'APPROVED', approvedBy: ['amy', 'ben'] }),
-    demoPR({ id: 1002, number: 835, title: 'Fix retry edge case in webhook processor', repo_full_name: 'acme/backend-api', created_at: demoIso(9), updated_at: demoIso(4), comments: 11, review_comments: 5, incomingReviewState: 'CHANGES_REQUESTED' }),
-    demoPR({ id: 1003, number: 829, title: 'Add keyboard shortcuts to list filters', repo_full_name: 'acme/web-client', created_at: demoIso(30), updated_at: demoIso(12), comments: 4, review_comments: 2, incomingReviewState: 'COMMENTED' })
+    demoPR({ id: 1001, number: 912, title: 'Add staged rollout controls to feature flags', repo_full_name: 'acme/platform-console', created_at: demoIso(2.2), updated_at: demoIso(0.4), comments: 6, review_comments: 4, incomingReviewState: 'APPROVED', approvedBy: ['riley', 'nina'] }),
+    demoPR({ id: 1002, number: 907, title: 'Prevent duplicate webhook retries after reconnect', repo_full_name: 'acme/edge-api', created_at: demoIso(7), updated_at: demoIso(2.5), comments: 9, review_comments: 3, incomingReviewState: 'CHANGES_REQUESTED' }),
+    demoPR({ id: 1003, number: 899, title: 'Polish keyboard navigation in list detail panel', repo_full_name: 'acme/desktop-shell', created_at: demoIso(22), updated_at: demoIso(10), comments: 3, review_comments: 2, incomingReviewState: 'COMMENTED' })
   ],
   draftPRs: [
-    demoPR({ id: 1004, number: 846, title: 'Refine empty states for onboarding flow', repo_full_name: 'acme/web-client', draft: true, created_at: demoIso(1.5), updated_at: demoIso(1.1), comments: 0, review_comments: 0 })
+    demoPR({ id: 1004, number: 915, title: 'Draft onboarding checklist for enterprise setup', repo_full_name: 'acme/platform-console', draft: true, created_at: demoIso(1.1), updated_at: demoIso(0.9), comments: 0, review_comments: 0 })
   ].map(pr => ({ ...pr, draft: true })),
   reviewedPRs: [
-    demoPR({ id: 1005, number: 818, title: 'Cache image transforms in worker queue', repo_full_name: 'acme/media-service', created_at: demoIso(20), updated_at: demoIso(6), comments: 6, review_comments: 7, myReviewState: 'APPROVED', approvedBy: ['you-demo'] }),
-    demoPR({ id: 1006, number: 812, title: 'Unify status chip styles across pages', repo_full_name: 'acme/design-system', created_at: demoIso(32), updated_at: demoIso(15), comments: 3, review_comments: 2, myReviewState: 'COMMENTED' })
+    demoPR({ id: 1005, number: 886, title: 'Streamline cache compaction in media worker', repo_full_name: 'acme/media-pipeline', created_at: demoIso(18), updated_at: demoIso(5), comments: 5, review_comments: 6, myReviewState: 'APPROVED', approvedBy: ['you-demo'] }),
+    demoPR({ id: 1006, number: 881, title: 'Align status badge sizing in side panels', repo_full_name: 'acme/design-kit', created_at: demoIso(28), updated_at: demoIso(14), comments: 2, review_comments: 2, myReviewState: 'COMMENTED' })
   ],
   reviewRequestedBase: [
-    demoPR({ id: 1007, number: 851, title: 'Migrate preferences to encrypted storage', repo_full_name: 'acme/security', created_at: demoIso(1.2), updated_at: demoIso(0.9), comments: 2, review_comments: 1 }),
-    demoPR({ id: 1008, number: 848, title: 'Reduce API chatter on notification refresh', repo_full_name: 'acme/desktop-app', created_at: demoIso(2.3), updated_at: demoIso(1.7), comments: 1, review_comments: 0 })
+    demoPR({ id: 1007, number: 918, title: 'Harden token rotation path for SSO tenants', repo_full_name: 'acme/security-core', created_at: demoIso(0.9), updated_at: demoIso(0.6), comments: 1, review_comments: 1, incomingReviewState: 'APPROVED', approvedBy: ['sarah'] }),
+    demoPR({ id: 1008, number: 916, title: 'Batch notification polling into shared request', repo_full_name: 'acme/desktop-shell', created_at: demoIso(1.7), updated_at: demoIso(1.2), comments: 1, review_comments: 0, incomingReviewState: 'COMMENTED' })
   ],
   squadActivityBase: [
-    demoPR({ id: 1009, number: 839, title: 'Introduce release checklist automation', repo_full_name: 'acme/devops', created_at: demoIso(10), updated_at: demoIso(8), comments: 5, review_comments: 1 }),
-    demoPR({ id: 1010, number: 832, title: 'Harden token validation fallback behavior', repo_full_name: 'acme/desktop-app', created_at: demoIso(16), updated_at: demoIso(7), comments: 7, review_comments: 3 })
+    demoPR({ id: 1009, number: 903, title: 'Automate pre-release smoke checklist', repo_full_name: 'acme/release-ops', created_at: demoIso(9), updated_at: demoIso(6), comments: 4, review_comments: 1 }),
+    demoPR({ id: 1010, number: 897, title: 'Improve token expiry fallback messaging', repo_full_name: 'acme/desktop-shell', created_at: demoIso(15), updated_at: demoIso(7), comments: 6, review_comments: 2 })
   ],
   myPRComments: [
     {
       id: 'demo-c-1',
-      prNumber: 842,
-      prTitle: 'Improve launch time of command palette',
-      prRepoFullName: 'acme/desktop-app',
-      prHtmlUrl: 'https://github.com/acme/desktop-app/pull/842',
+      prNumber: 912,
+      prTitle: 'Add staged rollout controls to feature flags',
+      prRepoFullName: 'acme/platform-console',
+      prHtmlUrl: 'https://github.com/acme/platform-console/pull/912',
       comment: {
         id: 5001,
-        user: { login: 'amy', avatar_url: 'https://avatars.githubusercontent.com/u/810438?v=4', html_url: 'https://github.com/amy' },
-        body: 'Looks great. Could we include a quick benchmark note in the description?',
-        html_url: 'https://github.com/acme/desktop-app/pull/842#discussion_r5001',
-        created_at: demoIso(0.7)
+        user: { login: 'riley', avatar_url: 'https://avatars.githubusercontent.com/u/289648?v=4', html_url: 'https://github.com/riley' },
+        body: 'Can we include a short note on rollout defaults before merge?',
+        html_url: 'https://github.com/acme/platform-console/pull/912#discussion_r5001',
+        created_at: demoIso(0.5)
       },
       read: false,
       isResolved: false
     },
     {
       id: 'demo-c-2',
-      prNumber: 835,
-      prTitle: 'Fix retry edge case in webhook processor',
-      prRepoFullName: 'acme/backend-api',
-      prHtmlUrl: 'https://github.com/acme/backend-api/pull/835',
+      prNumber: 907,
+      prTitle: 'Prevent duplicate webhook retries after reconnect',
+      prRepoFullName: 'acme/edge-api',
+      prHtmlUrl: 'https://github.com/acme/edge-api/pull/907',
       comment: {
         id: 5002,
-        user: { login: 'ben', avatar_url: 'https://avatars.githubusercontent.com/u/9919?v=4', html_url: 'https://github.com/ben' },
-        body: 'I left one question about the timeout default, then this should be ready.',
-        html_url: 'https://github.com/acme/backend-api/pull/835#discussion_r5002',
-        created_at: demoIso(3.5)
+        user: { login: 'amy', avatar_url: 'https://avatars.githubusercontent.com/u/810438?v=4', html_url: 'https://github.com/amy' },
+        body: 'One concern around jitter backoff, otherwise this looks solid.',
+        html_url: 'https://github.com/acme/edge-api/pull/907#discussion_r5002',
+        created_at: demoIso(2.8)
       },
       read: true,
       isResolved: false
@@ -185,20 +185,20 @@ const DEMO_DATA = {
   reviewReplies: [
     {
       id: 'demo-r-1',
-      prNumber: 818,
-      prTitle: 'Cache image transforms in worker queue',
-      prRepoFullName: 'acme/media-service',
-      prHtmlUrl: 'https://github.com/acme/media-service/pull/818',
+      prNumber: 886,
+      prTitle: 'Streamline cache compaction in media worker',
+      prRepoFullName: 'acme/media-pipeline',
+      prHtmlUrl: 'https://github.com/acme/media-pipeline/pull/886',
       myComment: {
-        body: 'Can we short-circuit if the resize dimensions already exist?',
-        html_url: 'https://github.com/acme/media-service/pull/818#discussion_r4991'
+        body: 'Could we skip compaction if the shard is already under threshold?',
+        html_url: 'https://github.com/acme/media-pipeline/pull/886#discussion_r4991'
       },
       comment: {
         id: 5003,
         user: { login: 'nina', avatar_url: 'https://avatars.githubusercontent.com/u/49699333?v=4', html_url: 'https://github.com/nina' },
-        body: 'Yep, pushed a follow-up commit for that path.',
-        html_url: 'https://github.com/acme/media-service/pull/818#discussion_r5003',
-        created_at: demoIso(2.2)
+        body: 'Added that guard and posted benchmark numbers in the PR.',
+        html_url: 'https://github.com/acme/media-pipeline/pull/886#discussion_r5003',
+        created_at: demoIso(1.9)
       },
       read: false,
       isResolved: false
@@ -208,23 +208,23 @@ const DEMO_DATA = {
     {
       id: 'demo-e-1',
       type: 'review_requested' as const,
-      title: 'Migrate preferences to encrypted storage',
-      body: 'Review requested - acme/security',
-      url: 'https://github.com/acme/security/pull/851',
-      pr: demoPR({ id: 1007, number: 851, title: 'Migrate preferences to encrypted storage', repo_full_name: 'acme/security', created_at: demoIso(1.2), updated_at: demoIso(0.9) }),
+      title: 'Harden token rotation path for SSO tenants',
+      body: 'Review requested - acme/security-core',
+      url: 'https://github.com/acme/security-core/pull/918',
+      pr: demoPR({ id: 1007, number: 918, title: 'Harden token rotation path for SSO tenants', repo_full_name: 'acme/security-core', created_at: demoIso(0.9), updated_at: demoIso(0.6) }),
       actor: { login: 'sarah', avatar_url: 'https://avatars.githubusercontent.com/u/229422?v=4', html_url: 'https://github.com/sarah' },
-      timestamp: demoIso(0.9),
+      timestamp: demoIso(0.6),
       read: false
     },
     {
       id: 'demo-e-2',
       type: 'reply_to_comment' as const,
-      title: 'Cache image transforms in worker queue',
-      body: 'nina: "Yep, pushed a follow-up commit for that path."',
-      url: 'https://github.com/acme/media-service/pull/818#discussion_r5003',
-      pr: demoPR({ id: 1005, number: 818, title: 'Cache image transforms in worker queue', repo_full_name: 'acme/media-service', created_at: demoIso(20), updated_at: demoIso(6) }),
+      title: 'Streamline cache compaction in media worker',
+      body: 'nina: "Added that guard and posted benchmark numbers in the PR."',
+      url: 'https://github.com/acme/media-pipeline/pull/886#discussion_r5003',
+      pr: demoPR({ id: 1005, number: 886, title: 'Streamline cache compaction in media worker', repo_full_name: 'acme/media-pipeline', created_at: demoIso(18), updated_at: demoIso(5) }),
       actor: { login: 'nina', avatar_url: 'https://avatars.githubusercontent.com/u/49699333?v=4', html_url: 'https://github.com/nina' },
-      timestamp: demoIso(2.2),
+      timestamp: demoIso(1.9),
       read: false
     }
   ],
@@ -232,13 +232,13 @@ const DEMO_DATA = {
 }
 
 const DEMO_REVIEW_REQUEST_TARGETS: Record<number, string[]> = {
-  851: ['you-demo', 'acme/platform'],
-  848: ['acme/desktop-foundations']
+  918: ['you-demo', 'acme/platform'],
+  916: ['acme/desktop-foundations']
 }
 
 const DEMO_SQUAD_TARGETS: Record<number, string[]> = {
-  839: ['acme/release-ops'],
-  832: ['acme/platform', 'acme/core-squad']
+  903: ['acme/release-ops'],
+  897: ['acme/platform', 'acme/core-squad']
 }
 
 function filterDemoPRsByTargets(prs: PullRequest[], targetMap: Record<number, string[]>, filters: string[]): PullRequest[] {
@@ -529,6 +529,10 @@ export const useStore = create<AppState>((set, get) => ({
         .filter(pr => !reviewedIds.has(pr.id))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
+      // Incoming review state for review-requested list (capped to save API calls)
+      const enrichedReviewRequested = await github.enrichWithIncomingReviewState(token, mergedReviewRequested.slice(0, 8))
+      const allReviewRequestedPRs = [...enrichedReviewRequested, ...mergedReviewRequested.slice(8)]
+
       // Squad activity (cached internally - only fetches if tab is visible)
       const squadActivityPRs = squadTabVisible
         ? await github.fetchSquadActivity(token, username, selectedTeams)
@@ -637,7 +641,7 @@ export const useStore = create<AppState>((set, get) => ({
         const prNumber = notif.subject.url?.match(/\/pulls\/(\d+)/)?.[1] || ''
         const matchedPR: PullRequest = myPRs.find(p => p.number === Number(prNumber)) ||
           allReviewedPRs.find(p => p.number === Number(prNumber)) ||
-          mergedReviewRequested.find(p => p.number === Number(prNumber)) ||
+          allReviewRequestedPRs.find(p => p.number === Number(prNumber)) ||
           {
             id: 0, number: Number(prNumber) || 0, title: notif.subject.title,
             html_url: htmlUrl, state: 'open', draft: false, merged_at: null,
@@ -695,7 +699,7 @@ export const useStore = create<AppState>((set, get) => ({
         myPRs,
         draftPRs,
         reviewedPRs: allReviewedPRs,
-        reviewRequestedPRs: mergedReviewRequested,
+        reviewRequestedPRs: allReviewRequestedPRs,
         squadActivityPRs,
         myPRComments,
         reviewReplies,

@@ -641,6 +641,13 @@ html, body, #root {
   color: var(--text-muted);
 }
 
+.pr-meta-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
@@ -653,33 +660,24 @@ html, body, #root {
 .status-dot.merged { background: var(--purple); }
 .status-dot.closed { background: var(--red); }
 
-.pr-new-comments {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--accent);
-}
-
 .review-state-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
-  padding: 2px 3px;
-  border-radius: 5px;
 }
 
 .review-state-icon.approved {
   color: var(--green);
-  background: color-mix(in srgb, var(--green) 16%, transparent);
 }
 .review-state-icon.commented {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 .review-state-icon.changes {
   color: var(--orange);
-  background: color-mix(in srgb, var(--orange) 16%, transparent);
+}
+
+.review-state-icon.requested {
+  color: var(--accent);
 }
 
 .pr-labels {

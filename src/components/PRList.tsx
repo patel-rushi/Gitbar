@@ -1,4 +1,4 @@
-import type { PullRequest, CommentActivity } from '../types'
+import type { PullRequest } from '../types'
 import { PRItem } from './PRItem'
 import { InboxIcon } from './Icons'
 import { useStore } from '../store'
@@ -9,26 +9,15 @@ interface PRListProps {
   emptyText?: string
   showReviewState?: boolean
   showIncomingReviewState?: boolean
-  commentSource?: 'myPRComments' | 'reviewReplies'
-  onCommentBadgeClick?: () => void
+  showReviewRequestedState?: boolean
   allowIgnore?: boolean
   allowDismiss?: boolean
   timeSource?: 'updated' | 'created'
 }
 
-export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, commentSource, onCommentBadgeClick, allowIgnore, allowDismiss, timeSource }: PRListProps) {
+export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, showReviewRequestedState, allowIgnore, allowDismiss, timeSource }: PRListProps) {
   const store = useStore()
   const { ignoredPRs, ignorePR, dismissReviewedPR } = store
-
-  const commentCounts = new Map<number, number>()
-  if (commentSource) {
-    const items: CommentActivity[] = store[commentSource]
-    for (const item of items) {
-      if (!item.read) {
-        commentCounts.set(item.prNumber, (commentCounts.get(item.prNumber) || 0) + 1)
-      }
-    }
-  }
 
   const filteredPRs = allowIgnore || allowDismiss
     ? prs.filter(pr => !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`))
@@ -59,8 +48,7 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           pr={pr}
           showReviewState={showReviewState}
           showIncomingReviewState={showIncomingReviewState}
-          newCommentCount={commentCounts.get(pr.number)}
-          onCommentBadgeClick={onCommentBadgeClick}
+          showReviewRequestedState={showReviewRequestedState}
           onIgnore={
             allowDismiss
               ? () => dismissReviewedPR(pr.repo_full_name, pr.number)

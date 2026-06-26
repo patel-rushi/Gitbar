@@ -7,7 +7,7 @@ import { fetchUserTeams, fetchOrgTeams, fetchUserOrgs, fetchAllOrgTeamSlugs, fet
 import { AppVersion } from './AppVersion'
 export function SettingsPanel() {
   const { settings, updateSettings, tabs, updateTabs, clearToken, clearBadge, setView, username, ignoredPRs, unignorePR } = useStore()
-  const [activeSection, setActiveSection] = useState<'main' | 'tabs' | 'review-filter'>('main')
+  const [activeSection, setActiveSection] = useState<'main' | 'tabs' | 'review-filter' | 'ignored-prs'>('main')
 
   const handleToggle = (key: keyof typeof settings.notifications) => {
     updateSettings({
@@ -43,6 +43,14 @@ export function SettingsPanel() {
     return <ReviewFilterSection
       settings={settings}
       updateSettings={updateSettings}
+      onBack={() => setActiveSection('main')}
+    />
+  }
+
+  if (activeSection === 'ignored-prs') {
+    return <IgnoredPRsSection
+      ignoredPRs={ignoredPRs}
+      unignorePR={unignorePR}
       onBack={() => setActiveSection('main')}
     />
   }
@@ -210,10 +218,8 @@ export function SettingsPanel() {
               Clear Badge Count
             </button>
             {ignoredPRs.size > 0 && (
-              <button className="btn-secondary" onClick={() => {
-                for (const key of ignoredPRs) unignorePR(key)
-              }}>
-                Unignore All PRs ({ignoredPRs.size})
+              <button className="btn-secondary" onClick={() => setActiveSection('ignored-prs')}>
+                Manage Ignored PRs ({ignoredPRs.size})
               </button>
             )}
           </div>
@@ -233,6 +239,112 @@ export function SettingsPanel() {
         </div>
 
         <div className="settings-version"><AppVersion /></div>
+      </div>
+    </>
+  )
+}
+
+function IgnoredPRsSection({
+  ignoredPRs,
+  unignorePR,
+  onBack
+}: {
+  ignoredPRs: Set<string>
+  unignorePR: (prKey: string) => void
+  onBack: () => void
+}) {
+  const ignoredList = Array.from(ignoredPRs).sort()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    setSelected(new Set())
+  }, [ignoredPRs.size])
+
+  const toggle = (key: string) => {
+    const next = new Set(selected)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setSelected(next)
+  }
+
+  const selectAll = () => setSelected(new Set(ignoredList))
+  const clearSelection = () => setSelected(new Set())
+
+  const unignoreSelected = () => {
+    for (const key of selected) unignorePR(key)
+    setSelected(new Set())
+  }
+
+  const unignoreAll = () => {
+    for (const key of ignoredList) unignorePR(key)
+    setSelected(new Set())
+  }
+
+  return (
+    <>
+      <div className="settings-header">
+        <button className="settings-back" onClick={onBack}>
+          <ChevronLeft />
+        </button>
+        <span className="settings-title">Ignored PRs</span>
+      </div>
+      <div className="settings-panel">
+        <div className="settings-section">
+          <div className="settings-section-title">Manage Ignored PRs</div>
+          <div className="settings-sublabel" style={{ marginBottom: 10 }}>
+            Unignore individual PRs or select multiple at once.
+          </div>
+
+          {ignoredList.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              No ignored PRs.
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <button className="btn-secondary" onClick={selectAll}>Select All</button>
+                <button className="btn-secondary" onClick={clearSelection} disabled={selected.size === 0}>Clear</button>
+                <button className="btn-secondary" onClick={unignoreSelected} disabled={selected.size === 0}>
+                  Unignore Selected ({selected.size})
+                </button>
+                <button className="btn-secondary" onClick={unignoreAll}>
+                  Unignore All ({ignoredList.length})
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {ignoredList.map(key => {
+                  const [repo, pr] = key.split('#')
+                  return (
+                    <div key={key} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      borderRadius: 'var(--radius-sm)'
+                    }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, minWidth: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(key)}
+                          onChange={() => toggle(key)}
+                        />
+                        <span style={{ fontFamily: "'SF Mono', Menlo, monospace", fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {repo}#{pr}
+                        </span>
+                      </label>
+                      <button className="btn-secondary" onClick={() => unignorePR(key)}>
+                        Unignore
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </>
   )
@@ -415,15 +527,24 @@ function ReviewFilterSection({
             <button
               className="btn-secondary"
               onClick={() => addEntry(username)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                textAlign: 'left'
+              }}
             >
               <span style={{
                 fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
                 padding: '2px 5px', borderRadius: 3,
-                background: 'var(--accent)', color: 'white'
+                background: 'var(--accent)', color: 'white', flexShrink: 0
               }}>user</span>
-              <span style={{ fontFamily: "'SF Mono', Menlo, monospace", fontSize: 12 }}>{username}</span>
+              <span style={{ fontFamily: "'SF Mono', Menlo, monospace", fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {username}
+              </span>
               <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>(direct requests)</span>
+              <PlusIcon />
             </button>
           </div>
         )}

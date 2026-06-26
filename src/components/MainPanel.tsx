@@ -66,7 +66,7 @@ export function MainPanel() {
               onChange={id => setMyPRsSegment(id as 'prs' | 'comments')}
             />
             {myPRsSegment === 'prs'
-              ? <PRList prs={myPRs} emptyTitle="No open PRs" emptyText="You don't have any open pull requests." commentSource="myPRComments" onCommentBadgeClick={() => setMyPRsSegment('comments')} showIncomingReviewState />
+              ? <PRList prs={myPRs} emptyTitle="No open PRs" emptyText="You don't have any open pull requests." showIncomingReviewState />
               : <CommentsList items={myPRComments} emptyTitle="No comments" emptyText="Comments on your PRs will appear here." />
             }
           </>
@@ -85,13 +85,13 @@ export function MainPanel() {
               onChange={id => setReviewedSegment(id as 'prs' | 'replies')}
             />
             {reviewedSegment === 'prs'
-              ? <PRList prs={reviewedPRs} emptyTitle="No reviewed PRs" emptyText="PRs you've reviewed will appear here." showReviewState commentSource="reviewReplies" onCommentBadgeClick={() => setReviewedSegment('replies')} allowDismiss />
+              ? <PRList prs={reviewedPRs} emptyTitle="No reviewed PRs" emptyText="PRs you've reviewed will appear here." showReviewState allowDismiss />
               : <CommentsList items={visibleReviewReplies} showMyComment emptyTitle="No replies" emptyText="Replies to your review comments will appear here." />
             }
           </>
         )
       case 'review-requested':
-        return <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." allowIgnore timeSource="created" />
+        return <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." showIncomingReviewState showReviewRequestedState allowIgnore timeSource="created" />
       case 'squad-activity':
         return <PRList prs={squadActivityPRs} emptyTitle="No squad activity" emptyText="PRs your team is reviewing will appear here. Configure teams in Settings → Review Requested." />
       case 'pinned':

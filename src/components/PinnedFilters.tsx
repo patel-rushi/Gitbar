@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useStore } from '../store'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useStore, DEMO_MODE } from '../store'
 import type { PullRequest, CustomFilter } from '../types'
 import { fetchFilteredPRs, fetchRepoLabels, fetchOrgRepos, fetchOrgMembers, fetchUserOrgs } from '../github'
 import { PRItem } from './PRItem'
@@ -8,25 +8,36 @@ import { InboxIcon, PlusIcon, TrashIcon, PencilIcon } from './Icons'
 
 interface SavedFilter extends CustomFilter {
   id: string
+  isDefault?: boolean
 }
+
+const PINNED_FILTERS_KEY = DEMO_MODE ? 'gitbar_custom_filters_demo' : 'gitbar_custom_filters'
 
 function loadFilters(): SavedFilter[] {
   try {
-    const raw = localStorage.getItem('gitbar_custom_filters')
-    return raw ? JSON.parse(raw) : []
+    const raw = localStorage.getItem(PINNED_FILTERS_KEY)
+    const parsed: SavedFilter[] = raw ? JSON.parse(raw) : []
+    let foundDefault = false
+    return parsed.map(f => {
+      const isDefault = !!f.isDefault && !foundDefault
+      if (isDefault) foundDefault = true
+      return { ...f, isDefault }
+    })
   } catch {
     return []
   }
 }
 
 function saveFilters(filters: SavedFilter[]) {
-  localStorage.setItem('gitbar_custom_filters', JSON.stringify(filters))
+  localStorage.setItem(PINNED_FILTERS_KEY, JSON.stringify(filters))
+  window.gitbar?.storeSet(PINNED_FILTERS_KEY, filters)
 }
 
 export function PinnedFilters() {
   const { token } = useStore()
   const [filters, setFilters] = useState<SavedFilter[]>(loadFilters)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const didAutoOpenDefault = useRef(false)
   const [results, setResults] = useState<PullRequest[]>([])
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -36,10 +47,11 @@ export function PinnedFilters() {
     labels: [],
     repos: [],
     authors: [],
-    query: ''
+    query: '',
+    isDefault: false
   })
 
-  const emptyDraft = (): Omit<SavedFilter, 'id'> => ({ name: '', labels: [], repos: [], authors: [], query: '' })
+  const emptyDraft = (): Omit<SavedFilter, 'id'> => ({ name: '', labels: [], repos: [], authors: [], query: '', isDefault: false })
 
   const startCreate = () => {
     setEditingId(null)
@@ -49,7 +61,7 @@ export function PinnedFilters() {
 
   const startEdit = (f: SavedFilter) => {
     setEditingId(f.id)
-    setDraft({ name: f.name, labels: f.labels, repos: f.repos, authors: f.authors, query: f.query ?? '' })
+    setDraft({ name: f.name, labels: f.labels, repos: f.repos, authors: f.authors, query: f.query ?? '', isDefault: !!f.isDefault })
     setEditing(true)
   }
 
@@ -66,6 +78,26 @@ export function PinnedFilters() {
       fetchUserOrgs(token).then(setOrgs)
     }
   }, [token])
+
+  useEffect(() => {
+    let cancelled = false
+    window.gitbar?.storeGet(PINNED_FILTERS_KEY).then((stored: SavedFilter[] | null) => {
+      if (cancelled || !stored || !Array.isArray(stored)) return
+      const normalized = stored.map(f => ({ ...f, isDefault: !!f.isDefault }))
+      setFilters(normalized)
+      localStorage.setItem(PINNED_FILTERS_KEY, JSON.stringify(normalized))
+    }).catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (didAutoOpenDefault.current) return
+    didAutoOpenDefault.current = true
+    const defaultFilter = filters.find(f => f.isDefault)
+    if (defaultFilter) setActiveFilter(defaultFilter.id)
+  }, [filters])
 
   const [filterError, setFilterError] = useState<string | null>(null)
 
@@ -90,9 +122,13 @@ export function PinnedFilters() {
   const saveFilter = () => {
     if (!draft.name.trim()) return
     const id = editingId ?? Date.now().toString()
-    const updated = editingId
-      ? filters.map(f => (f.id === editingId ? { ...draft, id } : f))
-      : [...filters, { ...draft, id }]
+    const nextFilter = { ...draft, id }
+    let updated = editingId
+      ? filters.map(f => (f.id === editingId ? nextFilter : f))
+      : [...filters, nextFilter]
+    if (nextFilter.isDefault) {
+      updated = updated.map(f => ({ ...f, isDefault: f.id === id }))
+    }
     setFilters(updated)
     saveFilters(updated)
     setEditing(false)
@@ -162,6 +198,12 @@ export function PinnedFilters() {
     }
   }
 
+  const setDefaultFilter = (id: string | null) => {
+    const updated = filters.map(f => ({ ...f, isDefault: id ? f.id === id : false }))
+    setFilters(updated)
+    saveFilters(updated)
+  }
+
   if (editing) {
     return (
       <div className="pr-list" style={{ padding: '12px 16px' }}>
@@ -218,6 +260,16 @@ export function PinnedFilters() {
             <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.4 }}>
               GitHub search qualifiers, combined with the fields above. <code>is:pr is:open</code> are added automatically unless you set them here.
             </div>
+          </div>
+          <div className="filter-field" style={{ marginTop: 6 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={!!draft.isDefault}
+                onChange={e => setDraft({ ...draft, isDefault: e.target.checked })}
+              />
+              <span>Open this filter by default in Pinned Filters tab</span>
+            </label>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="setup-btn" onClick={saveFilter} disabled={!draft.name.trim()} style={{ flex: 1 }}>
@@ -285,7 +337,12 @@ export function PinnedFilters() {
           {filters.map(f => (
             <div key={f.id} className="pr-item" style={{ alignItems: 'center' }}>
               <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setActiveFilter(f.id)}>
-                <div className="pr-title">{f.name}</div>
+                <div className="pr-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>{f.name}</span>
+                  {f.isDefault && (
+                    <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>Default</span>
+                  )}
+                </div>
                 <div className="pr-meta">
                   {f.repos.length > 0 && <span>Repos: {f.repos.join(', ')}</span>}
                   {f.labels.length > 0 && <span>Labels: {f.labels.join(', ')}</span>}
@@ -295,6 +352,14 @@ export function PinnedFilters() {
               </div>
               <button className="icon-btn" onClick={() => startEdit(f)} title="Edit filter">
                 <PencilIcon />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={() => setDefaultFilter(f.isDefault ? null : f.id)}
+                style={{ color: f.isDefault ? 'var(--accent)' : 'var(--text-secondary)' }}
+                title={f.isDefault ? 'Clear default filter' : 'Set as default filter'}
+              >
+                {f.isDefault ? '★' : '☆'}
               </button>
               <button className="icon-btn" onClick={() => removeFilter(f.id)} style={{ color: 'var(--red)' }} title="Delete filter">
                 <TrashIcon />

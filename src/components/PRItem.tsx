@@ -44,8 +44,7 @@ interface PRItemProps {
   unread?: boolean
   showReviewState?: boolean
   showIncomingReviewState?: boolean
-  newCommentCount?: number
-  onCommentBadgeClick?: () => void
+  showReviewRequestedState?: boolean
   onIgnore?: () => void
   ignoreVariant?: 'cross' | 'check'
   ignoreTitle?: string
@@ -65,7 +64,7 @@ function describeIncomingReviewState(state: ReviewState, approvedBy?: string[]):
   return ''
 }
 
-export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, newCommentCount, onCommentBadgeClick, onIgnore, ignoreVariant = 'cross', ignoreTitle, onClick, timeSource = 'updated' }: PRItemProps) {
+export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, showReviewRequestedState, onIgnore, ignoreVariant = 'cross', ignoreTitle, onClick, timeSource = 'updated' }: PRItemProps) {
   const status = getStatus(pr)
   const timestamp = timeSource === 'created' ? pr.created_at : pr.updated_at
   const date = new Date(timestamp)
@@ -74,6 +73,34 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, n
   const timeTitle = `${timeLabel} ${format(date, 'PPp')}`
 
   const isCheck = ignoreVariant === 'check'
+  const footerReviewState = showIncomingReviewState ? pr.incomingReviewState : showReviewState ? pr.myReviewState : null
+  const footerReviewTitle = showIncomingReviewState
+    ? describeIncomingReviewState(pr.incomingReviewState || null, pr.approvedBy)
+    : showReviewState
+      ? (pr.myReviewState === 'APPROVED'
+        ? 'You approved'
+        : pr.myReviewState === 'CHANGES_REQUESTED'
+          ? 'You requested changes'
+          : pr.myReviewState === 'COMMENTED'
+            ? 'You commented'
+            : '')
+      : ''
+  const footerIndicator = footerReviewState ? (
+    <ReviewStateIcon state={footerReviewState} title={footerReviewTitle} />
+  ) : showReviewRequestedState ? (
+    <span className="review-state-icon requested" title="Review requested">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M2 2.75C2 1.784 2.784 1 3.75 1h8.5C13.216 1 14 1.784 14 2.75v6.5A1.75 1.75 0 0 1 12.25 11H8.94L6.47 13.47A.75.75 0 0 1 5.19 12.94V11H3.75A1.75 1.75 0 0 1 2 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v6.5c0 .138.112.25.25.25h2.19a.75.75 0 0 1 .75.75v.88l1.41-1.41a.75.75 0 0 1 .53-.22h3.62a.25.25 0 0 0 .25-.25v-6.5a.25.25 0 0 0-.25-.25Zm4.75 3.25a.75.75 0 0 1 .75.75v.69h.69a.75.75 0 0 1 0 1.5h-.69v.69a.75.75 0 0 1-1.5 0v-.69h-.69a.75.75 0 0 1 0-1.5h.69V6.5a.75.75 0 0 1 .75-.75Z" />
+      </svg>
+    </span>
+  ) : pr.comments > 0 ? (
+    <span className="pr-meta-comments" title={`${pr.comments} comment${pr.comments === 1 ? '' : 's'}`}>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
+      </svg>
+      <span>{pr.comments}</span>
+    </span>
+  ) : null
 
   return (
     <div className={`pr-item${unread ? ' pr-item-unread' : ''}${onIgnore && isCheck ? ' pr-item-dismissable' : ''}`} onClick={onClick}>
@@ -95,47 +122,16 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, n
         <div className="pr-repo">
           <span className={`status-dot ${status}`} />
           {pr.repo_full_name}
-          {showReviewState && pr.myReviewState && (
-            <ReviewStateIcon
-              state={pr.myReviewState}
-              title={
-                pr.myReviewState === 'APPROVED'
-                  ? 'You approved'
-                  : pr.myReviewState === 'CHANGES_REQUESTED'
-                    ? 'You requested changes'
-                    : 'You commented'
-              }
-            />
-          )}
-          {showIncomingReviewState && pr.incomingReviewState && (
-            <ReviewStateIcon
-              state={pr.incomingReviewState}
-              title={describeIncomingReviewState(pr.incomingReviewState, pr.approvedBy)}
-            />
-          )}
-          {newCommentCount !== undefined && newCommentCount > 0 && (
-            <span
-              className="pr-new-comments"
-              title={`${newCommentCount} new comment${newCommentCount > 1 ? 's' : ''}`}
-              onClick={e => { e.stopPropagation(); onCommentBadgeClick?.() }}
-            >
-              💬 {newCommentCount}
-            </span>
-          )}
         </div>
         <div className="pr-title">{pr.title}</div>
         <div className="pr-meta">
+          {footerIndicator}
+          {footerIndicator && <span>·</span>}
           <span>#{pr.number}</span>
           <span>·</span>
           <span>{pr.user.login}</span>
           <span>·</span>
           <span title={timeTitle}>{timeAgo}</span>
-          {pr.comments > 0 && (
-            <>
-              <span>·</span>
-              <span>💬 {pr.comments}</span>
-            </>
-          )}
         </div>
         {pr.labels.length > 0 && (
           <div className="pr-labels">

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.8
+- Review Requested now shows review status when available, so you can spot approved, commented, or changes requested PRs faster.
+- You can set a default pinned filter and GitBar opens it automatically when you go to the Pinned tab.
+- Settings now include a Manage Ignored PRs screen where you can unignore one PR, selected PRs, or everything.
+- PR row status icons are cleaner and easier to scan with one status indicator in the metadata row.
+
 ## v1.2.7
 - Review Requested now shows approved PRs too (drafts still hidden).
 - Approved and comment review markers are easier to spot.
