@@ -8,8 +8,7 @@ const DEFAULT_TABS: TabConfig[] = [
   { id: 'drafts', label: 'Drafts', visible: true, order: 1, isCustom: false },
   { id: 'reviewed', label: 'Reviewed by Me', visible: true, order: 2, isCustom: false },
   { id: 'review-requested', label: 'Review Requested', visible: true, order: 3, isCustom: false },
-  { id: 'squad-activity', label: 'Squad Activity', visible: false, order: 4, isCustom: false },
-  { id: 'pinned', label: 'Pinned Filters', visible: true, order: 5, isCustom: false }
+  { id: 'pinned', label: 'Custom Filters', visible: true, order: 4, isCustom: false }
 ]
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -68,16 +67,14 @@ function migrateTabs(tabs: TabConfig[]): TabConfig[] {
     tabs = tabs.map(t => t.id !== 'drafts' && t.order >= 1 ? { ...t, order: t.order + 1 } : t)
     saveToStorage('gitbar_tabs', tabs)
   }
-  if (tabs.find(t => t.id === 'commented')) {
-    tabs = tabs.filter(t => t.id !== 'commented')
-    tabs = tabs.map((t, i) => ({ ...t, order: i }))
-    saveToStorage('gitbar_tabs', tabs)
+  tabs = tabs.filter(t => t.id !== 'commented' && t.id !== 'squad-activity')
+  if (!tabs.find(t => t.id === 'pinned')) {
+    const maxOrder = tabs.length ? Math.max(...tabs.map(t => t.order)) : 0
+    tabs.push({ id: 'pinned', label: 'Custom Filters', visible: true, order: maxOrder + 1, isCustom: false })
   }
-  if (!tabs.find(t => t.id === 'squad-activity')) {
-    const maxOrder = Math.max(...tabs.map(t => t.order))
-    tabs.push({ id: 'squad-activity', label: 'Squad Activity', visible: false, order: maxOrder + 1, isCustom: false })
-    saveToStorage('gitbar_tabs', tabs)
-  }
+  tabs = tabs.map(t => (t.id === 'pinned' && !t.isCustom) ? { ...t, label: 'Custom Filters' } : t)
+  tabs = [...tabs].sort((a, b) => a.order - b.order).map((t, i) => ({ ...t, order: i }))
+  saveToStorage('gitbar_tabs', tabs)
   return tabs
 }
 
@@ -142,11 +139,9 @@ const DEMO_DATA = {
   ],
   reviewRequestedBase: [
     demoPR({ id: 1007, number: 918, title: 'Harden token rotation path for SSO tenants', repo_full_name: 'acme/security-core', created_at: demoIso(0.9), updated_at: demoIso(0.6), comments: 1, review_comments: 1, incomingReviewState: 'APPROVED', approvedBy: ['sarah'] }),
-    demoPR({ id: 1008, number: 916, title: 'Batch notification polling into shared request', repo_full_name: 'acme/desktop-shell', created_at: demoIso(1.7), updated_at: demoIso(1.2), comments: 1, review_comments: 0, incomingReviewState: 'COMMENTED' })
-  ],
-  squadActivityBase: [
-    demoPR({ id: 1009, number: 903, title: 'Automate pre-release smoke checklist', repo_full_name: 'acme/release-ops', created_at: demoIso(9), updated_at: demoIso(6), comments: 4, review_comments: 1 }),
-    demoPR({ id: 1010, number: 897, title: 'Improve token expiry fallback messaging', repo_full_name: 'acme/desktop-shell', created_at: demoIso(15), updated_at: demoIso(7), comments: 6, review_comments: 2 })
+    demoPR({ id: 1008, number: 916, title: 'Batch notification polling into shared request', repo_full_name: 'acme/desktop-shell', created_at: demoIso(1.7), updated_at: demoIso(1.2), comments: 1, review_comments: 0, incomingReviewState: 'COMMENTED' }),
+    demoPR({ id: 1012, number: 922, title: 'Tighten retry behavior for flaky review webhooks', repo_full_name: 'acme/edge-api', created_at: demoIso(2.3), updated_at: demoIso(1.6), comments: 0, review_comments: 0, incomingReviewState: 'CHANGES_REQUESTED' }),
+    demoPR({ id: 1011, number: 921, title: 'Refactor permission gate checks for project pages', repo_full_name: 'acme/platform-console', created_at: demoIso(3.1), updated_at: demoIso(2.7), comments: 0, review_comments: 0, incomingReviewState: null })
   ],
   myPRComments: [
     {
@@ -233,12 +228,9 @@ const DEMO_DATA = {
 
 const DEMO_REVIEW_REQUEST_TARGETS: Record<number, string[]> = {
   918: ['you-demo', 'acme/platform'],
-  916: ['acme/desktop-foundations']
-}
-
-const DEMO_SQUAD_TARGETS: Record<number, string[]> = {
-  903: ['acme/release-ops'],
-  897: ['acme/platform', 'acme/core-squad']
+  916: ['acme/desktop-foundations'],
+  922: ['you-demo', 'acme/core-squad'],
+  921: ['you-demo']
 }
 
 function filterDemoPRsByTargets(prs: PullRequest[], targetMap: Record<number, string[]>, filters: string[]): PullRequest[] {
@@ -251,15 +243,9 @@ function filterDemoPRsByTargets(prs: PullRequest[], targetMap: Record<number, st
 
 function getDemoCollections(settings: AppSettings) {
   const filters = settings.reviewRequestedFilter || []
-  const selectedTeams = filters.filter(filter => filter.includes('/'))
 
   return {
-    reviewRequestedPRs: filterDemoPRsByTargets(DEMO_DATA.reviewRequestedBase, DEMO_REVIEW_REQUEST_TARGETS, filters),
-    squadActivityPRs: filterDemoPRsByTargets(
-      DEMO_DATA.squadActivityBase,
-      DEMO_SQUAD_TARGETS,
-      selectedTeams.length > 0 ? selectedTeams : DEMO_TEAM_OPTIONS
-    )
+    reviewRequestedPRs: filterDemoPRsByTargets(DEMO_DATA.reviewRequestedBase, DEMO_REVIEW_REQUEST_TARGETS, filters)
   }
 }
 
@@ -278,7 +264,6 @@ export const useStore = create<AppState>((set, get) => ({
   draftPRs: DEMO_MODE ? DEMO_DATA.draftPRs : [],
   reviewedPRs: DEMO_MODE ? DEMO_DATA.reviewedPRs : [],
   reviewRequestedPRs: DEMO_MODE ? DEMO_COLLECTIONS.reviewRequestedPRs : [],
-  squadActivityPRs: DEMO_MODE ? DEMO_COLLECTIONS.squadActivityPRs : [],
   userTeams: DEMO_MODE ? DEMO_TEAM_OPTIONS : loadFromStorage<string[]>('gitbar_user_teams', []),
 
   myPRComments: DEMO_MODE ? DEMO_DATA.myPRComments : loadFromStorage<CommentActivity[]>('gitbar_my_pr_comments', []),
@@ -348,7 +333,6 @@ export const useStore = create<AppState>((set, get) => ({
       draftPRs: [],
       reviewedPRs: [],
       reviewRequestedPRs: [],
-      squadActivityPRs: [],
       myPRComments: [],
       reviewReplies: [],
       userTeams: [],
@@ -440,8 +424,7 @@ export const useStore = create<AppState>((set, get) => ({
       const demoCollections = getDemoCollections(settings)
       set({
         settings,
-        reviewRequestedPRs: demoCollections.reviewRequestedPRs,
-        squadActivityPRs: demoCollections.squadActivityPRs
+        reviewRequestedPRs: demoCollections.reviewRequestedPRs
       })
     } else {
       set({ settings })
@@ -482,7 +465,6 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       const selectedTeams = (reviewFilter || []).filter(t => t.includes('/'))
-      const squadTabVisible = get().tabs.some(t => t.id === 'squad-activity' && t.visible)
 
       // Fetch team members for selected teams (cached in localStorage)
       let teamMembers = loadFromStorage<string[]>('gitbar_team_members', [])
@@ -532,11 +514,6 @@ export const useStore = create<AppState>((set, get) => ({
       // Incoming review state for review-requested list (capped to save API calls)
       const enrichedReviewRequested = await github.enrichWithIncomingReviewState(token, mergedReviewRequested.slice(0, 8))
       const allReviewRequestedPRs = [...enrichedReviewRequested, ...mergedReviewRequested.slice(8)]
-
-      // Squad activity (cached internally - only fetches if tab is visible)
-      const squadActivityPRs = squadTabVisible
-        ? await github.fetchSquadActivity(token, username, selectedTeams)
-        : []
 
       // Review state enrichment (limited to 5 most recent to save API calls)
       const reviewedPRs = await github.enrichWithReviewState(token, rawReviewedPRs.slice(0, 5), username)
@@ -700,7 +677,6 @@ export const useStore = create<AppState>((set, get) => ({
         draftPRs,
         reviewedPRs: allReviewedPRs,
         reviewRequestedPRs: allReviewRequestedPRs,
-        squadActivityPRs,
         myPRComments,
         reviewReplies,
         events: allEvents,

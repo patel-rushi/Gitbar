@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { PRList } from './PRList'
-import { PinnedFilters } from './PinnedFilters'
+import { PinnedFilters, CustomFilterTab } from './PinnedFilters'
 import { SegmentedToggle } from './SegmentedToggle'
 import { CommentsList } from './CommentsList'
 import { GearIconSimple, RefreshIcon, CheckIcon } from './Icons'
@@ -12,7 +12,7 @@ import { formatDistanceToNow } from 'date-fns'
 export function MainPanel() {
   const {
     username, avatarUrl, activeTab, setActiveTab, setView,
-    myPRs, draftPRs, reviewedPRs, reviewRequestedPRs, squadActivityPRs,
+    myPRs, draftPRs, reviewedPRs, reviewRequestedPRs,
     myPRComments, reviewReplies,
     events, badgeCount, markAllRead, pollError,
     tabs, isPolling, lastPollAt, poll, startPolling,
@@ -48,9 +48,10 @@ export function MainPanel() {
     'drafts': false,
     'reviewed': events.some(e => !e.read && e.type === 'reply_to_comment') || unreadReplies > 0,
     'review-requested': events.some(e => !e.read && e.type === 'review_requested'),
-    'squad-activity': false,
     'pinned': false
   }
+
+  const activeCustomTab = tabs.find(tab => tab.id === activeTab && tab.isCustom && !!tab.filter)
 
   const renderContent = () => {
     switch (activeTab) {
@@ -92,11 +93,12 @@ export function MainPanel() {
         )
       case 'review-requested':
         return <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." showIncomingReviewState showReviewRequestedState allowIgnore timeSource="created" />
-      case 'squad-activity':
-        return <PRList prs={squadActivityPRs} emptyTitle="No squad activity" emptyText="PRs your team is reviewing will appear here. Configure teams in Settings → Review Requested." />
       case 'pinned':
         return <PinnedFilters />
       default:
+        if (activeCustomTab?.filter) {
+          return <CustomFilterTab filter={activeCustomTab.filter} />
+        }
         return <PRList prs={[]} />
     }
   }

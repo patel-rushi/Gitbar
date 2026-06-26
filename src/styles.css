@@ -567,11 +567,12 @@ html, body, #root {
   color: white;
 }
 
-/* Dismiss (check) variant: always visible, clear affordance, reserved space */
-.pr-item-dismissable {
+/* Action button rows: reserve space for right-side control */
+.pr-item-actionable {
   padding-right: 38px;
 }
 
+/* Dismiss (check) variant: always visible, clear affordance */
 .pr-ignore-btn-check {
   display: flex;
   top: 50%;
@@ -581,6 +582,25 @@ html, body, #root {
   border: 1px solid var(--border);
   background: var(--bg-secondary);
   color: var(--text-secondary);
+}
+
+/* Ignore (cross) variant: same visible shape as dismiss, keeps red hover state */
+.pr-ignore-btn-cross {
+  display: flex;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.pr-ignore-btn-cross:hover {
+  background: var(--red);
+  color: white;
+  border-color: var(--red);
 }
 
 .pr-ignore-btn-check:hover {
@@ -678,6 +698,18 @@ html, body, #root {
 
 .review-state-icon.requested {
   color: var(--accent);
+}
+
+.review-state-icon.none {
+  color: var(--text-muted);
+}
+
+.review-state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  display: inline-block;
 }
 
 .pr-labels {

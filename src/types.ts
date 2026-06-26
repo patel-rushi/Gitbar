@@ -102,7 +102,6 @@ export interface AppState {
   draftPRs: PullRequest[]
   reviewedPRs: PullRequest[]
   reviewRequestedPRs: PullRequest[]
-  squadActivityPRs: PullRequest[]
   userTeams: string[]
   
   myPRComments: CommentActivity[]

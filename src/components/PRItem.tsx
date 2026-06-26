@@ -39,6 +39,20 @@ function ReviewStateIcon({ state, title }: { state: ReviewState; title: string }
   return null
 }
 
+function CommentStateIcon({ title }: { title: string }) {
+  return (
+    <span className="review-state-icon commented" title={title}>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
+      </svg>
+    </span>
+  )
+}
+
+function NoActivityDot() {
+  return <span className="review-state-dot" title="No review activity yet" />
+}
+
 interface PRItemProps {
   pr: PullRequest
   unread?: boolean
@@ -85,28 +99,31 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, s
             ? 'You commented'
             : '')
       : ''
-  const footerIndicator = footerReviewState ? (
-    <ReviewStateIcon state={footerReviewState} title={footerReviewTitle} />
-  ) : showReviewRequestedState ? (
-    <span className="review-state-icon requested" title="Review requested">
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M2 2.75C2 1.784 2.784 1 3.75 1h8.5C13.216 1 14 1.784 14 2.75v6.5A1.75 1.75 0 0 1 12.25 11H8.94L6.47 13.47A.75.75 0 0 1 5.19 12.94V11H3.75A1.75 1.75 0 0 1 2 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v6.5c0 .138.112.25.25.25h2.19a.75.75 0 0 1 .75.75v.88l1.41-1.41a.75.75 0 0 1 .53-.22h3.62a.25.25 0 0 0 .25-.25v-6.5a.25.25 0 0 0-.25-.25Zm4.75 3.25a.75.75 0 0 1 .75.75v.69h.69a.75.75 0 0 1 0 1.5h-.69v.69a.75.75 0 0 1-1.5 0v-.69h-.69a.75.75 0 0 1 0-1.5h.69V6.5a.75.75 0 0 1 .75-.75Z" />
-      </svg>
-    </span>
-  ) : pr.comments > 0 ? (
+  const totalComments = (pr.comments || 0) + (pr.review_comments || 0)
+  const footerIndicator = showReviewRequestedState
+    ? (footerReviewState === 'APPROVED' || footerReviewState === 'CHANGES_REQUESTED'
+      ? <ReviewStateIcon state={footerReviewState} title={footerReviewTitle} />
+      : (footerReviewState === 'COMMENTED' || totalComments > 0)
+        ? <CommentStateIcon title={footerReviewState === 'COMMENTED' ? footerReviewTitle || 'Has comments' : `${totalComments} comment${totalComments === 1 ? '' : 's'}`} />
+        : <NoActivityDot />)
+    : footerReviewState
+      ? <ReviewStateIcon state={footerReviewState} title={footerReviewTitle} />
+      : pr.comments > 0
+        ? (
     <span className="pr-meta-comments" title={`${pr.comments} comment${pr.comments === 1 ? '' : 's'}`}>
       <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
         <path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
       </svg>
       <span>{pr.comments}</span>
     </span>
-  ) : null
+          )
+        : null
 
   return (
-    <div className={`pr-item${unread ? ' pr-item-unread' : ''}${onIgnore && isCheck ? ' pr-item-dismissable' : ''}`} onClick={onClick}>
+    <div className={`pr-item${unread ? ' pr-item-unread' : ''}${onIgnore ? ' pr-item-actionable' : ''}`} onClick={onClick}>
       {onIgnore && (
         <button
-          className={`pr-ignore-btn${isCheck ? ' pr-ignore-btn-check' : ''}`}
+          className={`pr-ignore-btn${isCheck ? ' pr-ignore-btn-check' : ' pr-ignore-btn-cross'}`}
           title={ignoreTitle || 'Ignore this PR'}
           onClick={e => { e.stopPropagation(); onIgnore() }}
         >
