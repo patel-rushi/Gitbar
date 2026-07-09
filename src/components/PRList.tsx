@@ -10,12 +10,13 @@ interface PRListProps {
   showReviewState?: boolean
   showIncomingReviewState?: boolean
   showReviewRequestedState?: boolean
+  showPipelineState?: boolean
   allowIgnore?: boolean
   allowDismiss?: boolean
   timeSource?: 'updated' | 'created'
 }
 
-export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, showReviewRequestedState, allowIgnore, allowDismiss, timeSource }: PRListProps) {
+export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, showReviewRequestedState, showPipelineState, allowIgnore, allowDismiss, timeSource }: PRListProps) {
   const store = useStore()
   const { ignoredPRs, ignorePR, dismissReviewedPR } = store
 
@@ -49,6 +50,7 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           showReviewState={showReviewState}
           showIncomingReviewState={showIncomingReviewState}
           showReviewRequestedState={showReviewRequestedState}
+          showPipelineState={showPipelineState}
           onIgnore={
             allowDismiss
               ? () => dismissReviewedPR(pr.repo_full_name, pr.number)

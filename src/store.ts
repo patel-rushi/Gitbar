@@ -152,7 +152,8 @@ function demoPR(partial: Partial<PullRequest> & { id: number; number: number; ti
     review_comments: partial.review_comments ?? 0,
     myReviewState: partial.myReviewState,
     incomingReviewState: partial.incomingReviewState,
-    approvedBy: partial.approvedBy
+    approvedBy: partial.approvedBy,
+    pipelineState: partial.pipelineState
   }
 }
 
@@ -160,9 +161,9 @@ const DEMO_DATA = {
   username: 'you-demo',
   avatarUrl: 'https://avatars.githubusercontent.com/u/583231?v=4',
   myPRs: [
-    demoPR({ id: 1001, number: 912, title: 'Add staged rollout controls to feature flags', repo_full_name: 'acme/platform-console', created_at: demoIso(2.2), updated_at: demoIso(0.4), comments: 6, review_comments: 4, incomingReviewState: 'APPROVED', approvedBy: ['riley', 'nina'] }),
-    demoPR({ id: 1002, number: 907, title: 'Prevent duplicate webhook retries after reconnect', repo_full_name: 'acme/edge-api', created_at: demoIso(7), updated_at: demoIso(2.5), comments: 9, review_comments: 3, incomingReviewState: 'CHANGES_REQUESTED' }),
-    demoPR({ id: 1003, number: 899, title: 'Polish keyboard navigation in list detail panel', repo_full_name: 'acme/desktop-shell', created_at: demoIso(22), updated_at: demoIso(10), comments: 3, review_comments: 2, incomingReviewState: 'COMMENTED' })
+    demoPR({ id: 1001, number: 912, title: 'Add staged rollout controls to feature flags', repo_full_name: 'acme/platform-console', created_at: demoIso(2.2), updated_at: demoIso(0.4), comments: 6, review_comments: 4, incomingReviewState: 'APPROVED', approvedBy: ['riley', 'nina'], pipelineState: 'SUCCESS' }),
+    demoPR({ id: 1002, number: 907, title: 'Prevent duplicate webhook retries after reconnect', repo_full_name: 'acme/edge-api', created_at: demoIso(7), updated_at: demoIso(2.5), comments: 9, review_comments: 3, incomingReviewState: 'CHANGES_REQUESTED', pipelineState: 'FAILURE' }),
+    demoPR({ id: 1003, number: 899, title: 'Polish keyboard navigation in list detail panel', repo_full_name: 'acme/desktop-shell', created_at: demoIso(22), updated_at: demoIso(10), comments: 3, review_comments: 2, incomingReviewState: 'COMMENTED', pipelineState: 'PENDING' })
   ],
   draftPRs: [
     demoPR({ id: 1004, number: 915, title: 'Draft onboarding checklist for enterprise setup', repo_full_name: 'acme/platform-console', draft: true, created_at: demoIso(1.1), updated_at: demoIso(0.9), comments: 0, review_comments: 0 })
@@ -547,8 +548,19 @@ export const useStore = create<AppState>((set, get) => ({
         github.fetchNotifications(token, get().lastPollAt || undefined)
       ])
 
-      // Incoming review state for top My PRs (capped to save API calls)
-      const enrichedMyPRs = await github.enrichWithIncomingReviewState(token, rawMyPRs.slice(0, 8))
+      // Incoming review and pipeline state for top My PRs (capped to save API calls)
+      const topMyPRs = rawMyPRs.slice(0, 8)
+      const [myPRsWithIncomingReview, myPRsWithPipeline] = await Promise.all([
+        github.enrichWithIncomingReviewState(token, topMyPRs),
+        github.enrichWithPipelineState(token, topMyPRs)
+      ])
+      const pipelineByKey = new Map(
+        myPRsWithPipeline.map(pr => [`${pr.repo_full_name}#${pr.number}`, pr.pipelineState ?? null])
+      )
+      const enrichedMyPRs = myPRsWithIncomingReview.map(pr => ({
+        ...pr,
+        pipelineState: pipelineByKey.get(`${pr.repo_full_name}#${pr.number}`) ?? null
+      }))
       const myPRs = [...enrichedMyPRs, ...rawMyPRs.slice(8)]
 
       // Review requested (2-3 search calls + teammate PRs cached for 5 min)

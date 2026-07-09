@@ -1,5 +1,5 @@
 import { formatDistanceToNow, format } from 'date-fns'
-import type { PullRequest, ReviewState } from '../types'
+import type { PullRequest, ReviewState, PipelineState } from '../types'
 
 function getStatus(pr: PullRequest): 'open' | 'draft' | 'merged' | 'closed' {
   if (pr.merged_at) return 'merged'
@@ -53,12 +53,57 @@ function NoActivityDot() {
   return <span className="review-state-dot" title="No review activity yet" />
 }
 
+function PipelineStateBadge({ state }: { state: PipelineState }) {
+  if (state === 'SUCCESS') {
+    return (
+      <span className="pipeline-state-badge success" title="Checks passing">
+        <span className="pipeline-state-label">CI</span>
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+        </svg>
+      </span>
+    )
+  }
+
+  if (state === 'FAILURE') {
+    return (
+      <span className="pipeline-state-badge failure" title="Checks failing">
+        <span className="pipeline-state-label">CI</span>
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 0 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
+        </svg>
+      </span>
+    )
+  }
+
+  if (state === 'PENDING') {
+    return (
+      <span className="pipeline-state-badge pending" title="Checks running">
+        <span className="pipeline-state-label">CI</span>
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 1.5a6.5 6.5 0 1 0 6.5 6.5A6.5 6.5 0 0 0 8 1.5Zm0 1.5a5 5 0 1 1-5 5 5 5 0 0 1 5-5Zm.75 1.75a.75.75 0 0 0-1.5 0v3.56c0 .2.08.39.22.53l2.25 2.25a.75.75 0 1 0 1.06-1.06L8.75 8.06V4.75Z" />
+        </svg>
+      </span>
+    )
+  }
+
+  return (
+    <span className="pipeline-state-badge none" title="No checks reported">
+      <span className="pipeline-state-label">CI</span>
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M2.75 2h10.5c.414 0 .75.336.75.75v10.5a.75.75 0 0 1-.75.75H2.75A.75.75 0 0 1 2 13.25V2.75C2 2.336 2.336 2 2.75 2ZM3.5 3.5v9h9v-9h-9Z" />
+      </svg>
+    </span>
+  )
+}
+
 interface PRItemProps {
   pr: PullRequest
   unread?: boolean
   showReviewState?: boolean
   showIncomingReviewState?: boolean
   showReviewRequestedState?: boolean
+  showPipelineState?: boolean
   onIgnore?: () => void
   ignoreVariant?: 'cross' | 'check'
   ignoreTitle?: string
@@ -78,7 +123,7 @@ function describeIncomingReviewState(state: ReviewState, approvedBy?: string[]):
   return ''
 }
 
-export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, showReviewRequestedState, onIgnore, ignoreVariant = 'cross', ignoreTitle, onClick, timeSource = 'updated' }: PRItemProps) {
+export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, showReviewRequestedState, showPipelineState, onIgnore, ignoreVariant = 'cross', ignoreTitle, onClick, timeSource = 'updated' }: PRItemProps) {
   const status = getStatus(pr)
   const timestamp = timeSource === 'created' ? pr.created_at : pr.updated_at
   const date = new Date(timestamp)
@@ -118,6 +163,7 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, s
     </span>
           )
         : null
+  const pipelineIndicator = showPipelineState ? <PipelineStateBadge state={pr.pipelineState ?? null} /> : null
 
   return (
     <div className={`pr-item${unread ? ' pr-item-unread' : ''}${onIgnore ? ' pr-item-actionable' : ''}`} onClick={onClick}>
@@ -143,7 +189,9 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, s
         <div className="pr-title">{pr.title}</div>
         <div className="pr-meta">
           {footerIndicator}
-          {footerIndicator && <span>·</span>}
+          {footerIndicator && pipelineIndicator && <span>·</span>}
+          {pipelineIndicator}
+          {(footerIndicator || pipelineIndicator) && <span>·</span>}
           <span>#{pr.number}</span>
           <span>·</span>
           <span>{pr.user.login}</span>

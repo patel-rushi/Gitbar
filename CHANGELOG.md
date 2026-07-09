@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- My PRs now show a distinct CI pipeline status chip.
+
 ## v1.2.9
 - Custom filters can now become stand-alone tabs.
 - Review Requested filter setup now opens directly from that tab.

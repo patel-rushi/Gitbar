@@ -1,4 +1,4 @@
-import type { PullRequest, GitHubUser, ReviewState } from './types'
+import type { PullRequest, GitHubUser, ReviewState, PipelineState } from './types'
 
 const API_BASE = 'https://api.github.com'
 const GRAPHQL_URL = 'https://api.github.com/graphql'
@@ -425,6 +425,73 @@ export async function enrichWithIncomingReviewState(
       return { ...pr, incomingReviewState: summary.state, approvedBy: summary.approvedBy }
     })
   )
+  return results.map((r, i) => r.status === 'fulfilled' ? r.value : prs[i])
+}
+
+function toPipelineState(state: string | null | undefined): PipelineState {
+  if (!state) return 'NONE'
+  if (state === 'SUCCESS') return 'SUCCESS'
+  if (state === 'FAILURE' || state === 'ERROR') return 'FAILURE'
+  if (state === 'PENDING' || state === 'EXPECTED') return 'PENDING'
+  return 'NONE'
+}
+
+async function fetchPipelineState(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<PipelineState> {
+  const query = `
+    query($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+          commits(last: 1) {
+            nodes {
+              commit {
+                statusCheckRollup {
+                  state
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `
+
+  try {
+    const res = await fetch(GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        ...headers(token),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query, variables: { owner, repo, number: prNumber } })
+    })
+    if (!res.ok) return null
+
+    const data = await res.json()
+    const state = data?.data?.repository?.pullRequest?.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state
+    return toPipelineState(typeof state === 'string' ? state : null)
+  } catch {
+    return null
+  }
+}
+
+export async function enrichWithPipelineState(
+  token: string,
+  prs: PullRequest[]
+): Promise<PullRequest[]> {
+  const results = await Promise.allSettled(
+    prs.map(async pr => {
+      const [owner, repo] = pr.repo_full_name.split('/')
+      if (!owner || !repo) return pr
+      const pipelineState = await fetchPipelineState(token, owner, repo, pr.number)
+      return { ...pr, pipelineState }
+    })
+  )
+
   return results.map((r, i) => r.status === 'fulfilled' ? r.value : prs[i])
 }
 

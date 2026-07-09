@@ -5,6 +5,7 @@ export interface GitHubUser {
 }
 
 export type ReviewState = 'APPROVED' | 'COMMENTED' | 'CHANGES_REQUESTED' | 'DISMISSED' | null
+export type PipelineState = 'SUCCESS' | 'FAILURE' | 'PENDING' | 'NONE' | null
 
 export interface PullRequest {
   id: number
@@ -26,6 +27,7 @@ export interface PullRequest {
   myReviewState?: ReviewState
   incomingReviewState?: ReviewState
   approvedBy?: string[]
+  pipelineState?: PipelineState
 }
 
 export interface NotificationEvent {
