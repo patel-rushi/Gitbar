@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useStore, DEMO_MODE } from '../store'
 import type { PullRequest, CustomFilter } from '../types'
 import { fetchFilteredPRs, fetchRepoLabels, fetchOrgRepos, fetchOrgMembers, fetchUserOrgs } from '../github'
-import { PRItem } from './PRItem'
+import { PRList } from './PRList'
 import { AutocompleteInput } from './AutocompleteInput'
 import { InboxIcon, PlusIcon, TrashIcon, PencilIcon } from './Icons'
 
@@ -351,9 +351,11 @@ export function PinnedFilters() {
             <div className="empty-state-text">No PRs match this filter.</div>
           </div>
         ) : (
-          results.map(pr => (
-            <PRItem key={pr.id} pr={pr} onClick={() => window.gitbar?.openExternal(pr.html_url)} />
-          ))
+          <PRList
+            prs={results}
+            allowIgnore
+            timeSource="created"
+          />
         )}
       </div>
     )
@@ -471,21 +473,13 @@ export function CustomFilterTab({ filter }: { filter: CustomFilter }) {
     )
   }
 
-  if (results.length === 0) {
-    return (
-      <div className="empty-state">
-        <InboxIcon />
-        <div className="empty-state-title">No matches</div>
-        <div className="empty-state-text">No PRs match this filter.</div>
-      </div>
-    )
-  }
-
   return (
-    <div className="pr-list">
-      {results.map(pr => (
-        <PRItem key={pr.id} pr={pr} onClick={() => window.gitbar?.openExternal(pr.html_url)} />
-      ))}
-    </div>
+    <PRList
+      prs={results}
+      emptyTitle="No matches"
+      emptyText="No PRs match this filter."
+      allowIgnore
+      timeSource="created"
+    />
   )
 }

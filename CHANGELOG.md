@@ -1,7 +1,10 @@
 # Changelog
 
 ## Unreleased
+
+## v1.2.10
 - My PRs now show a distinct CI pipeline status chip.
+- Pinned and custom filter tabs now let you ignore PRs directly from the list.
 
 ## v1.2.9
 - Custom filters can now become stand-alone tabs.
