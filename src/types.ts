@@ -133,14 +133,11 @@ export interface AppState {
   setSettingsSection: (section: 'main' | 'tabs' | 'ignored-prs') => void
   setSettingsOrigin: (origin: 'settings' | 'main') => void
   setActiveTab: (tab: string) => void
-  markEventRead: (id: string) => void
-  markAllRead: () => void
   markCommentRead: (id: string) => void
   ignorePR: (prKey: string) => void
   unignorePR: (prKey: string) => void
   dismissReviewedPR: (repoFullName: string, prNumber: number) => void
   dismissComment: (id: string) => void
-  clearBadge: () => void
   updateSettings: (settings: Partial<AppSettings>) => void
   updateTabs: (tabs: TabConfig[]) => void
   poll: () => Promise<void>

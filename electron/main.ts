@@ -221,6 +221,9 @@ app.on('window-all-closed', () => {
 ipcMain.on('update-badge', (_event, count: number) => {
   if (!tray) return
   tray.setTitle(count > 0 ? String(count) : '')
+  tray.setToolTip(count > 0
+    ? `GitBar: ${count} PR${count === 1 ? '' : 's'} awaiting your review`
+    : `GitBar v${app.getVersion()}`)
 })
 
 ipcMain.on('show-notification', (_event, data: { title: string; body: string; url?: string }) => {

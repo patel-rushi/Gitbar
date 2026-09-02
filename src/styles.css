@@ -562,6 +562,25 @@ html, body, #root {
   background: var(--red);
 }
 
+.tab-count {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 0 5px;
+  border-radius: 8px;
+  min-width: 15px;
+  text-align: center;
+  line-height: 15px;
+}
+
+.tab.active .tab-count {
+  background: rgba(88, 166, 255, 0.18);
+  color: var(--accent);
+}
+
 .review-requested-view {
   flex: 1;
   min-height: 0;

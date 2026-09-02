@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- The menu bar badge and tray tooltip now always show how many PRs are waiting on your review, and it stays accurate after a restart.
+- Tabs now show how many items are inside them.
+- Removed the mark all read and clear badge buttons now that the count updates itself.
+- Fixed the unread dot sometimes showing for comments you already dismissed or hid.
 
 ## v1.2.10
 - My PRs now show a distinct CI pipeline status chip.

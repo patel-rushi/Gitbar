@@ -62,6 +62,7 @@ function clearAllPersistentData() {
     'gitbar_avatar',
     'gitbar_events',
     'gitbar_badge',
+    'gitbar_review_requested_prs',
     'gitbar_last_poll',
     'gitbar_user_teams',
     'gitbar_my_pr_comments',
@@ -110,6 +111,10 @@ function migrateTabs(tabs: TabConfig[]): TabConfig[] {
   tabs = [...ordered, ...(pinned ? [pinned] : [])].map((t, i) => ({ ...t, order: i }))
   saveToStorage('gitbar_tabs', tabs)
   return tabs
+}
+
+function getReviewRequestedCount(prs: PullRequest[], ignoredPRs: Set<string>): number {
+  return prs.filter(pr => !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`)).length
 }
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -298,7 +303,9 @@ export const useStore = create<AppState>((set, get) => ({
   myPRs: DEMO_MODE ? DEMO_DATA.myPRs : [],
   draftPRs: DEMO_MODE ? DEMO_DATA.draftPRs : [],
   reviewedPRs: DEMO_MODE ? DEMO_DATA.reviewedPRs : [],
-  reviewRequestedPRs: DEMO_MODE ? DEMO_COLLECTIONS.reviewRequestedPRs : [],
+  reviewRequestedPRs: DEMO_MODE
+    ? DEMO_COLLECTIONS.reviewRequestedPRs
+    : loadFromStorage<PullRequest[]>('gitbar_review_requested_prs', []),
   userTeams: DEMO_MODE ? DEMO_TEAM_OPTIONS : loadFromStorage<string[]>('gitbar_user_teams', []),
 
   myPRComments: DEMO_MODE ? DEMO_DATA.myPRComments : loadFromStorage<CommentActivity[]>('gitbar_my_pr_comments', []),
@@ -307,7 +314,12 @@ export const useStore = create<AppState>((set, get) => ({
   dismissedComments: new Set<string>(loadFromStorage<string[]>('gitbar_dismissed_comments', [])),
 
   events: DEMO_MODE ? DEMO_DATA.events : loadFromStorage<NotificationEvent[]>('gitbar_events', []),
-  badgeCount: DEMO_MODE ? DEMO_DATA.events.filter(e => !e.read).length : loadFromStorage<number>('gitbar_badge', 0),
+  badgeCount: DEMO_MODE
+    ? getReviewRequestedCount(DEMO_COLLECTIONS.reviewRequestedPRs, new Set())
+    : getReviewRequestedCount(
+      loadFromStorage<PullRequest[]>('gitbar_review_requested_prs', []),
+      new Set(loadFromStorage<string[]>('gitbar_ignored_prs', []))
+    ),
 
   tabs: migrateTabs(loadFromStorage<TabConfig[]>('gitbar_tabs', DEFAULT_TABS)),
   settings: INITIAL_SETTINGS,
@@ -403,27 +415,6 @@ export const useStore = create<AppState>((set, get) => ({
   setSettingsOrigin: (settingsOrigin) => set({ settingsOrigin }),
   setActiveTab: (tab) => set({ activeTab: tab }),
 
-  markEventRead: (id: string) => {
-    const events = get().events.map(e => e.id === id ? { ...e, read: true } : e)
-    const badgeCount = events.filter(e => !e.read).length
-    saveToStorage('gitbar_events', events)
-    saveToStorage('gitbar_badge', badgeCount)
-    set({ events, badgeCount })
-    window.gitbar?.updateBadge(badgeCount)
-  },
-
-  markAllRead: () => {
-    const events = get().events.map(e => ({ ...e, read: true }))
-    const myPRComments = get().myPRComments.map(c => ({ ...c, read: true }))
-    const reviewReplies = get().reviewReplies.map(c => ({ ...c, read: true }))
-    saveToStorage('gitbar_events', events)
-    saveToStorage('gitbar_badge', 0)
-    saveToStorage('gitbar_my_pr_comments', myPRComments)
-    saveToStorage('gitbar_review_replies', reviewReplies)
-    set({ events, myPRComments, reviewReplies, badgeCount: 0 })
-    window.gitbar?.updateBadge(0)
-  },
-
   markCommentRead: (id: string) => {
     const myPRComments = get().myPRComments.map(c => c.id === id ? { ...c, read: true } : c)
     const reviewReplies = get().reviewReplies.map(c => c.id === id ? { ...c, read: true } : c)
@@ -435,15 +426,19 @@ export const useStore = create<AppState>((set, get) => ({
   ignorePR: (prKey: string) => {
     const ignoredPRs = new Set(get().ignoredPRs)
     ignoredPRs.add(prKey)
+    const badgeCount = getReviewRequestedCount(get().reviewRequestedPRs, ignoredPRs)
     saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
-    set({ ignoredPRs })
+    set({ ignoredPRs, badgeCount })
+    window.gitbar?.updateBadge(badgeCount)
   },
 
   unignorePR: (prKey: string) => {
     const ignoredPRs = new Set(get().ignoredPRs)
     ignoredPRs.delete(prKey)
+    const badgeCount = getReviewRequestedCount(get().reviewRequestedPRs, ignoredPRs)
     saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
-    set({ ignoredPRs })
+    set({ ignoredPRs, badgeCount })
+    window.gitbar?.updateBadge(badgeCount)
   },
 
   dismissReviewedPR: (repoFullName: string, prNumber: number) => {
@@ -468,21 +463,18 @@ export const useStore = create<AppState>((set, get) => ({
     set({ dismissedComments, myPRComments, reviewReplies })
   },
 
-  clearBadge: () => {
-    saveToStorage('gitbar_badge', 0)
-    set({ badgeCount: 0 })
-    window.gitbar?.updateBadge(0)
-  },
-
   updateSettings: (partial: Partial<AppSettings>) => {
     const settings = { ...get().settings, ...partial }
     saveToStorage('gitbar_settings', settings)
     if (DEMO_MODE) {
       const demoCollections = getDemoCollections(settings)
+      const badgeCount = getReviewRequestedCount(demoCollections.reviewRequestedPRs, get().ignoredPRs)
       set({
         settings,
-        reviewRequestedPRs: demoCollections.reviewRequestedPRs
+        reviewRequestedPRs: demoCollections.reviewRequestedPRs,
+        badgeCount
       })
+      window.gitbar?.updateBadge(badgeCount)
     } else {
       set({ settings })
     }
@@ -732,10 +724,10 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       const allEvents = [...newEvents, ...get().events].slice(0, 100)
-      const badgeCount = allEvents.filter(e => !e.read).length
+      const badgeCount = getReviewRequestedCount(allReviewRequestedPRs, get().ignoredPRs)
 
       saveToStorage('gitbar_events', allEvents)
-      saveToStorage('gitbar_badge', badgeCount)
+      saveToStorage('gitbar_review_requested_prs', allReviewRequestedPRs)
 
       const lastPollAt = new Date().toISOString()
       saveToStorage('gitbar_last_poll', lastPollAt)
@@ -806,7 +798,8 @@ if (typeof window !== 'undefined' && window.gitbar) {
     loadFromPersistentStore<string[]>('gitbar_user_teams', []),
     loadFromPersistentStore<string[]>('gitbar_ignored_prs', []),
     loadFromPersistentStore<string[]>('gitbar_dismissed_comments', []),
-  ]).then(([token, username, avatarUrl, settings, tabs, userTeams, ignoredPrs, dismissedComments]) => {
+    loadFromPersistentStore<PullRequest[]>('gitbar_review_requested_prs', []),
+  ]).then(([token, username, avatarUrl, settings, tabs, userTeams, ignoredPrs, dismissedComments, reviewRequestedPRs]) => {
     // Always restore dismissal state — localStorage isn't reliably persisted
     // across restarts, so these live in the main-process store.
     const dismissalPatch: Partial<AppState> = {}
@@ -817,6 +810,13 @@ if (typeof window !== 'undefined' && window.gitbar) {
       dismissalPatch.dismissedComments = new Set([...useStore.getState().dismissedComments, ...dismissedComments])
     }
     if (Object.keys(dismissalPatch).length > 0) useStore.setState(dismissalPatch)
+
+    if (Array.isArray(reviewRequestedPRs)) {
+      const ignored = dismissalPatch.ignoredPRs || useStore.getState().ignoredPRs
+      const badgeCount = getReviewRequestedCount(reviewRequestedPRs, ignored)
+      useStore.setState({ reviewRequestedPRs, badgeCount })
+      if (useStore.getState().token || token) window.gitbar?.updateBadge(badgeCount)
+    }
 
     if (Array.isArray(tabs) && tabs.length > 0) {
       useStore.setState({ tabs: migrateTabs(tabs) })

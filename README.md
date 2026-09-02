@@ -11,7 +11,7 @@ brew install --cask patel-rushi/gitbar/gitbar
 https://github.com/user-attachments/assets/ef8c6fe8-d426-440a-a516-9beac6c6d9ea
 
 
-- **Lives in your menu bar**: a quiet tray icon with an unread badge counter
+- **Lives in your menu bar**: a quiet tray icon showing how many PRs are waiting on your review
 - **GitHub notifications**: alerts only for replies to your PRs, replies to your comments, @mentions, and review requests
 - **Tabbed pull request inbox**: My PRs, Reviewed by Me, Review Requested, I Commented, and custom filters
 - **Custom filters**: pin views by repository, label, author, or any GitHub search query

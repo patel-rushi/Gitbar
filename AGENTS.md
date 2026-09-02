@@ -48,6 +48,9 @@ Use demo mode when recording videos/screenshots and you want zero real PR/notifi
 - Keep Review Requested filter configuration inside the Review Requested tab itself, not in Settings. Use in-context guidance that explains users can control which PRs appear there.
 - Keep sign-out session-only. Revoke Token & Sign Out should disconnect the account but leave user customization and local data intact; provide a separate danger-styled full reset action for clearing everything.
 - In My PRs, treat review state and pipeline health as separate signals. Keep pipeline as a distinct CI chip style (not a plain approval icon variant) and keep fetch cost capped to top visible items during poll.
+- GitHub rate limits are a hard product constraint, not a reason to avoid necessary fresh data. Prefer cached data for startup and local UI updates, batch independent requests, and cap per-PR enrichment to visible/recent items. Make GitHub calls when remote state must be refreshed, but never solely to recalculate derived local state such as counters, badges, filters, or dismissals.
+- The menu bar counter is the number of visible, actionable Review Requested PRs. Derive it from the cached Review Requested list and local ignored state, including on startup and ignore/unignore actions; never add a GitHub request just to update the counter.
+- Tab dots indicate unread comment or reply rows that are currently visible in that tab. Do not derive them from persisted notification history; Review Requested uses the menu bar counter instead of a duplicate dot.
 - Treat `AGENTS.md` as a living checklist for future diff agents. After any meaningful product change, add or update brief guidance that captures:
 	- user-visible naming decisions
 	- persistence guarantees (restart, update, sign out/in behavior)

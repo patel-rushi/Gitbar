@@ -4,7 +4,7 @@ import { ChevronLeft } from './Icons'
 import type { TabConfig } from '../types'
 import { AppVersion } from './AppVersion'
 export function SettingsPanel() {
-  const { settings, updateSettings, tabs, updateTabs, clearToken, clearAllData, clearBadge, setView, username, ignoredPRs, unignorePR, settingsSection, setSettingsSection, settingsOrigin, setSettingsOrigin } = useStore()
+  const { settings, updateSettings, tabs, updateTabs, clearToken, clearAllData, setView, username, ignoredPRs, unignorePR, settingsSection, setSettingsSection, settingsOrigin, setSettingsOrigin } = useStore()
   const [activeSection, setActiveSection] = useState<'main' | 'tabs' | 'ignored-prs'>(settingsSection)
 
   useEffect(() => {
@@ -201,19 +201,14 @@ export function SettingsPanel() {
           </button>
         </div>
 
-        <div className="settings-section">
-          <div className="settings-section-title">Actions</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn-secondary" onClick={clearBadge}>
-              Clear Badge Count
+        {ignoredPRs.size > 0 && (
+          <div className="settings-section">
+            <div className="settings-section-title">Actions</div>
+            <button className="btn-secondary" onClick={() => { setActiveSection('ignored-prs'); setSettingsSection('ignored-prs') }} style={{ width: '100%' }}>
+              Manage Ignored PRs ({ignoredPRs.size})
             </button>
-            {ignoredPRs.size > 0 && (
-              <button className="btn-secondary" onClick={() => { setActiveSection('ignored-prs'); setSettingsSection('ignored-prs') }}>
-                Manage Ignored PRs ({ignoredPRs.size})
-              </button>
-            )}
           </div>
-        </div>
+        )}
 
         <div className="settings-section">
           <div className="settings-section-title">Account</div>
@@ -359,4 +354,3 @@ function IgnoredPRsSection({
     </>
   )
 }
-

@@ -5,7 +5,7 @@ import { PinnedFilters, CustomFilterTab } from './PinnedFilters'
 import { ReviewFilterSection } from './ReviewFilterSection'
 import { SegmentedToggle } from './SegmentedToggle'
 import { CommentsList } from './CommentsList'
-import { GearIconSimple, RefreshIcon, CheckIcon } from './Icons'
+import { GearIconSimple, RefreshIcon } from './Icons'
 import { AppVersion } from './AppVersion'
 import { UpdatePill, UpdateInfo } from './UpdateBanner'
 import { formatDistanceToNow } from 'date-fns'
@@ -16,13 +16,18 @@ export function MainPanel() {
     settings, updateSettings,
     myPRs, draftPRs, reviewedPRs, reviewRequestedPRs,
     myPRComments, reviewReplies,
-    events, badgeCount, markAllRead, pollError,
+    badgeCount, pollError,
     tabs, isPolling, lastPollAt, poll, startPolling,
-    pendingUpdateVersion, ignoredPRs
+    pendingUpdateVersion, ignoredPRs, dismissedComments
   } = useStore()
 
+  const visibleMyPRComments = myPRComments.filter(c =>
+    !dismissedComments.has(c.id) && (!settings.hideResolvedComments || !c.isResolved)
+  )
   const visibleReviewReplies = reviewReplies.filter(
-    c => !ignoredPRs.has(`${c.prRepoFullName}#${c.prNumber}`)
+    c => !ignoredPRs.has(`${c.prRepoFullName}#${c.prNumber}`) &&
+      !dismissedComments.has(c.id) &&
+      (!settings.hideResolvedComments || !c.isResolved)
   )
 
   const [myPRsSegment, setMyPRsSegment] = useState<'prs' | 'comments'>('prs')
@@ -47,16 +52,23 @@ export function MainPanel() {
     .sort((a, b) => a.order - b.order)
   const contentTabs = visibleTabs.filter(t => t.id !== 'pinned')
 
-  const unreadComments = myPRComments.filter(c => !c.read && !c.isResolved).length
-  const unreadReplies = visibleReviewReplies.filter(c => !c.read && !c.isResolved).length
+  const unreadComments = visibleMyPRComments.filter(c => !c.read).length
+  const unreadReplies = visibleReviewReplies.filter(c => !c.read).length
   const reviewFilterCount = settings.reviewRequestedFilter?.length || 0
 
   const unreadByTab: Record<string, boolean> = {
-    'my-prs': events.some(e => !e.read && e.type === 'reply_to_pr') || unreadComments > 0,
+    'my-prs': unreadComments > 0,
     'drafts': false,
-    'reviewed': events.some(e => !e.read && e.type === 'reply_to_comment') || unreadReplies > 0,
-    'review-requested': events.some(e => !e.read && e.type === 'review_requested'),
+    'reviewed': unreadReplies > 0,
+    'review-requested': false,
     'pinned': false
+  }
+
+  const countByTab: Record<string, number> = {
+    'my-prs': myPRs.length,
+    'drafts': draftPRs.length,
+    'reviewed': reviewedPRs.filter(pr => !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`)).length,
+    'review-requested': badgeCount
   }
 
   const activeCustomTab = tabs.find(tab => tab.id === activeTab && tab.isCustom && !!tab.filter)
@@ -76,7 +88,7 @@ export function MainPanel() {
             />
             {myPRsSegment === 'prs'
               ? <PRList prs={myPRs} emptyTitle="No open PRs" emptyText="You don't have any open pull requests." showIncomingReviewState showPipelineState />
-              : <CommentsList items={myPRComments} emptyTitle="No comments" emptyText="Comments on your PRs will appear here." />
+              : <CommentsList items={visibleMyPRComments} emptyTitle="No comments" emptyText="Comments on your PRs will appear here." />
             }
           </>
         )
@@ -153,11 +165,6 @@ export function MainPanel() {
         </div>
         <div className="header-actions">
           <UpdatePill active={showUpdateInfo} onClick={() => setShowUpdateInfo(v => !v)} />
-          {badgeCount > 0 && (
-            <button className="icon-btn" onClick={markAllRead} title="Mark all read">
-              <CheckIcon />
-            </button>
-          )}
           <button className="icon-btn" onClick={() => poll()} title="Refresh" disabled={isPolling}>
             {isPolling ? <span className="spinner" /> : <RefreshIcon />}
           </button>
@@ -176,6 +183,7 @@ export function MainPanel() {
               onClick={() => selectTab(tab.id)}
             >
               {tab.label}
+              {!!countByTab[tab.id] && <span className="tab-count">{countByTab[tab.id]}</span>}
               {unreadByTab[tab.id] && <span className="tab-badge" />}
             </button>
           ))}
