@@ -12,11 +12,16 @@ export function SettingsPanel() {
   }, [settingsSection])
 
   const handleToggle = (key: keyof typeof settings.notifications) => {
+    const enabled = !settings.notifications[key]
     updateSettings({
       notifications: {
         ...settings.notifications,
-        [key]: !settings.notifications[key]
+        [key]: enabled
       }
+    })
+    window.gitbar?.trackAnalytics('notification_preference_updated', {
+      preference: key,
+      enabled: enabled ? 'yes' : 'no'
     })
   }
 

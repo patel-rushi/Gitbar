@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('gitbar', {
     ipcRenderer.send('show-notification', data),
   openExternal: (url: string) => ipcRenderer.send('open-external', url),
   hideWindow: () => ipcRenderer.send('hide-window'),
+  identifyAnalytics: (githubUserId: number, githubLogin: string) =>
+    ipcRenderer.send('identify-analytics', githubUserId, githubLogin),
+  resetAnalytics: () => ipcRenderer.send('reset-analytics'),
+  trackAnalytics: (event: string, properties?: Record<string, string | number>) =>
+    ipcRenderer.send('track-analytics', event, properties),
   storeGet: (key: string) => ipcRenderer.invoke('store-get', key),
   storeSet: (key: string, value: any) => ipcRenderer.invoke('store-set', key, value),
   storeRemove: (key: string) => ipcRenderer.invoke('store-remove', key),

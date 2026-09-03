@@ -180,6 +180,14 @@ export function PinnedFilters() {
     } else {
       removeCustomFilterTab(id)
     }
+    window.gitbar?.trackAnalytics('custom_filter_saved', {
+      action: editingId ? 'updated' : 'created',
+      repository_count: draft.repos.length,
+      label_count: draft.labels.length,
+      author_count: draft.authors.length,
+      has_advanced_query: draft.query?.trim() ? 'yes' : 'no',
+      saved_as_tab: draftAsTab ? 'yes' : 'no'
+    })
   }
 
   const fetchLabelSuggestions = useCallback(async (query: string) => {
@@ -242,6 +250,7 @@ export function PinnedFilters() {
       setActiveFilter(null)
       setResults([])
     }
+    window.gitbar?.trackAnalytics('custom_filter_deleted')
   }
 
   if (editing) {

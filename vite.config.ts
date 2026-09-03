@@ -1,10 +1,22 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 
-export default defineConfig({
+function getPostHogDefine(mode: string) {
+  const env = loadEnv(mode, '.', '')
+  return {
+    ...(env.POSTHOG_PROJECT_TOKEN && {
+      'process.env.POSTHOG_PROJECT_TOKEN': JSON.stringify(env.POSTHOG_PROJECT_TOKEN)
+    }),
+    ...(env.POSTHOG_HOST && {
+      'process.env.POSTHOG_HOST': JSON.stringify(env.POSTHOG_HOST)
+    })
+  }
+}
+
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     electron([
@@ -14,10 +26,11 @@ export default defineConfig({
           args.startup()
         },
         vite: {
+          define: getPostHogDefine(mode),
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-updater', '@aptabase/electron', '@aptabase/electron/main', '@aptabase/electron/renderer']
+              external: ['electron', 'electron-updater', 'posthog-node']
             }
           }
         }
@@ -31,7 +44,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-updater', '@aptabase/electron', '@aptabase/electron/main', '@aptabase/electron/renderer']
+              external: ['electron', 'electron-updater', 'posthog-node']
             }
           }
         }
@@ -48,4 +61,4 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src')
     }
   }
-})
+}))

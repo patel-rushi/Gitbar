@@ -2,7 +2,7 @@ import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, Notificati
 import path from 'path'
 import fs from 'fs'
 import { setupAutoUpdater, checkForUpdatesManually, maybeCheckForUpdates } from './updater'
-import { initAnalytics, track } from './analytics'
+import { identifyAnalytics, initAnalytics, resetAnalytics, track } from './analytics'
 
 initAnalytics()
 
@@ -249,6 +249,20 @@ ipcMain.on('open-external', (_event, url: string) => {
 
 ipcMain.on('hide-window', () => {
   hideWindow()
+})
+
+ipcMain.on('identify-analytics', (_event, githubUserId: number, githubLogin: string) => {
+  if (typeof githubLogin === 'string') identifyAnalytics(githubUserId, githubLogin)
+})
+
+ipcMain.on('reset-analytics', () => {
+  resetAnalytics()
+})
+
+ipcMain.on('track-analytics', (_event, event: unknown, properties: unknown) => {
+  if (typeof event !== 'string' || !/^[a-z0-9_]+$/.test(event)) return
+  if (properties != null && (typeof properties !== 'object' || Array.isArray(properties))) return
+  track(event, properties as Record<string, string | number> | undefined)
 })
 
 ipcMain.handle('store-get', (_event, key: string) => {

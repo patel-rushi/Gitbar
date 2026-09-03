@@ -60,7 +60,12 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           }
           ignoreVariant={allowDismiss ? 'check' : 'cross'}
           ignoreTitle={allowDismiss ? 'Dismiss — stop showing this PR' : undefined}
-          onClick={() => window.gitbar?.openExternal(pr.html_url)}
+          onClick={() => {
+            window.gitbar?.trackAnalytics('pull_request_opened', {
+              list_type: allowDismiss ? 'reviewed' : allowIgnore ? 'review_requested_or_filtered' : 'authored_or_draft'
+            })
+            window.gitbar?.openExternal(pr.html_url)
+          }}
           timeSource={timeSource}
         />
       ))}

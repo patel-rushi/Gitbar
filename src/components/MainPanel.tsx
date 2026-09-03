@@ -165,7 +165,10 @@ export function MainPanel() {
         </div>
         <div className="header-actions">
           <UpdatePill active={showUpdateInfo} onClick={() => setShowUpdateInfo(v => !v)} />
-          <button className="icon-btn" onClick={() => poll()} title="Refresh" disabled={isPolling}>
+          <button className="icon-btn" onClick={() => {
+            window.gitbar?.trackAnalytics('manual_sync_requested')
+            poll()
+          }} title="Refresh" disabled={isPolling}>
             {isPolling ? <span className="spinner" /> : <RefreshIcon />}
           </button>
           <button className="icon-btn" onClick={() => { setSettingsOrigin('settings'); setSettingsSection('main'); setView('settings') }} title="Settings">

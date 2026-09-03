@@ -28,6 +28,8 @@ jobs:
       - name: Build app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
         run: npm run electron:build -- --publish never
 
       - name: Extract release notes

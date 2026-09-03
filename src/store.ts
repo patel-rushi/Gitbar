@@ -59,6 +59,7 @@ function clearAllPersistentData() {
   const keys = [
     'gitbar_token',
     'gitbar_username',
+    'gitbar_user_id',
     'gitbar_avatar',
     'gitbar_events',
     'gitbar_badge',
@@ -340,6 +341,11 @@ export const useStore = create<AppState>((set, get) => ({
     if (user) {
       saveToStorage('gitbar_token', token)
       saveToStorage('gitbar_username', user.login)
+      if (typeof user.id === 'number' && Number.isSafeInteger(user.id) && user.id > 0) {
+        saveToStorage('gitbar_user_id', user.id)
+        window.gitbar?.identifyAnalytics(user.id, user.login)
+        window.gitbar?.trackAnalytics('github_connected')
+      }
       saveToStorage('gitbar_avatar', user.avatar_url)
       set({
         token,
@@ -352,11 +358,13 @@ export const useStore = create<AppState>((set, get) => ({
       return true
     }
     set({ isValidating: false })
+    window.gitbar?.trackAnalytics('github_connection_failed')
     return false
   },
 
   clearToken: () => {
     get().stopPolling()
+    window.gitbar?.resetAnalytics()
     set({
       token: null,
       username: null,
@@ -377,6 +385,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   clearAllData: () => {
     get().stopPolling()
+    window.gitbar?.resetAnalytics()
     clearAllPersistentData()
     set({
       token: null,
@@ -430,6 +439,7 @@ export const useStore = create<AppState>((set, get) => ({
     saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
     set({ ignoredPRs, badgeCount })
     window.gitbar?.updateBadge(badgeCount)
+    window.gitbar?.trackAnalytics('pull_request_ignored')
   },
 
   unignorePR: (prKey: string) => {
@@ -439,6 +449,7 @@ export const useStore = create<AppState>((set, get) => ({
     saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
     set({ ignoredPRs, badgeCount })
     window.gitbar?.updateBadge(badgeCount)
+    window.gitbar?.trackAnalytics('pull_request_restored')
   },
 
   dismissReviewedPR: (repoFullName: string, prNumber: number) => {
@@ -450,6 +461,7 @@ export const useStore = create<AppState>((set, get) => ({
     saveToStorage('gitbar_ignored_prs', Array.from(ignoredPRs))
     saveToStorage('gitbar_review_replies', reviewReplies)
     set({ ignoredPRs, reviewReplies })
+    window.gitbar?.trackAnalytics('pull_request_ignored')
   },
 
   dismissComment: (id: string) => {
@@ -792,6 +804,7 @@ if (typeof window !== 'undefined' && window.gitbar) {
   Promise.all([
     loadFromPersistentStore<string | null>('gitbar_token', null),
     loadFromPersistentStore<string | null>('gitbar_username', null),
+    loadFromPersistentStore<number | null>('gitbar_user_id', null),
     loadFromPersistentStore<string | null>('gitbar_avatar', null),
     loadFromPersistentStore<Partial<AppSettings>>('gitbar_settings', {}),
     loadFromPersistentStore<TabConfig[]>('gitbar_tabs', DEFAULT_TABS),
@@ -799,7 +812,7 @@ if (typeof window !== 'undefined' && window.gitbar) {
     loadFromPersistentStore<string[]>('gitbar_ignored_prs', []),
     loadFromPersistentStore<string[]>('gitbar_dismissed_comments', []),
     loadFromPersistentStore<PullRequest[]>('gitbar_review_requested_prs', []),
-  ]).then(([token, username, avatarUrl, settings, tabs, userTeams, ignoredPrs, dismissedComments, reviewRequestedPRs]) => {
+  ]).then(([token, username, githubUserId, avatarUrl, settings, tabs, userTeams, ignoredPrs, dismissedComments, reviewRequestedPRs]) => {
     // Always restore dismissal state — localStorage isn't reliably persisted
     // across restarts, so these live in the main-process store.
     const dismissalPatch: Partial<AppState> = {}
@@ -823,6 +836,24 @@ if (typeof window !== 'undefined' && window.gitbar) {
     }
 
     const currentToken = useStore.getState().token
+    // localStorage already hydrates token/username synchronously at store creation on
+    // returning sessions, so currentToken is usually set here — identify regardless.
+    const identifyToken = currentToken || token
+    const identifyUsername = useStore.getState().username || username
+    if (identifyToken) {
+      if (typeof githubUserId === 'number' && Number.isSafeInteger(githubUserId) && githubUserId > 0 && identifyUsername) {
+        window.gitbar?.identifyAnalytics(githubUserId, identifyUsername)
+      } else {
+        // Sessions saved before analytics identification existed have no stored numeric id — backfill it once.
+        github.validateToken(identifyToken).then(user => {
+          if (user && typeof user.id === 'number' && Number.isSafeInteger(user.id) && user.id > 0) {
+            saveToStorage('gitbar_user_id', user.id)
+            window.gitbar?.identifyAnalytics(user.id, user.login)
+          }
+        })
+      }
+    }
+
     if (!currentToken && token) {
       useStore.setState({
         token,

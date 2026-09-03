@@ -1,4 +1,5 @@
 export interface GitHubUser {
+  id?: number
   login: string
   avatar_url: string
   html_url: string
@@ -152,6 +153,9 @@ declare global {
       showNotification: (data: { title: string; body: string; url?: string }) => void
       openExternal: (url: string) => void
       hideWindow: () => void
+      identifyAnalytics: (githubUserId: number, githubLogin: string) => void
+      resetAnalytics: () => void
+      trackAnalytics: (event: string, properties?: Record<string, string | number>) => void
       storeGet: (key: string) => Promise<any>
       storeSet: (key: string, value: any) => Promise<void>
       storeRemove: (key: string) => Promise<void>

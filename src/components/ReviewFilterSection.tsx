@@ -66,10 +66,12 @@ export function ReviewFilterSection({
     const trimmed = value.trim()
     if (!trimmed || filters.includes(trimmed)) return
     updateSettings({ reviewRequestedFilter: [...filters, trimmed] })
+    window.gitbar?.trackAnalytics('review_filter_updated', { action: 'added', target_type: trimmed.includes('/') ? 'team' : 'user' })
   }
 
   const removeEntry = (entry: string) => {
     updateSettings({ reviewRequestedFilter: filters.filter(f => f !== entry) })
+    window.gitbar?.trackAnalytics('review_filter_updated', { action: 'removed', target_type: entry.includes('/') ? 'team' : 'user' })
   }
 
   const isTeam = (entry: string) => entry.includes('/')

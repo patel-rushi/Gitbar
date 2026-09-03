@@ -1,12 +1,11 @@
 # Working on GitBar
 
 Guidance for any AI agent working on this project. Read before making changes.
-(This file is local-only and gitignored — keep it out of the public repo.)
 
 GitBar is a macOS menu bar Electron app for GitHub PR/notification triage.
 
 - **Repos**: source `patel-rushi/Gitbar` (the remote prints a harmless "repository moved" notice on push — ignore it). Homebrew tap lives in the separate `patel-rushi/homebrew-gitbar`; CI auto-bumps its cask on every release.
-- **Stack**: Electron main in `electron/*.ts`; renderer is React + Vite + Zustand in `src/*`. State + persistence in `src/store.ts` (localStorage **and** main-process electron-store via `gitbar-data.json`; hydrate dismissal/persistent state from the main store on startup). GitHub REST calls in `src/github.ts`. Analytics via Aptabase.
+- **Stack**: Electron main in `electron/*.ts`; renderer is React + Vite + Zustand in `src/*`. State + persistence in `src/store.ts` (localStorage **and** main-process electron-store via `gitbar-data.json`; hydrate dismissal/persistent state from the main store on startup). GitHub REST calls in `src/github.ts`. Analytics via PostHog (`electron/analytics.ts`), configured from `POSTHOG_PROJECT_TOKEN`/`POSTHOG_HOST` in `.env` (see `.env.example`; `.env` is gitignored, injected into the packaged build via `vite.config.ts` `define`). Anonymous installs use a random id persisted in `gitbar-analytics-id.json`; after GitHub auth, events are attributed to `github:<user id>` (renderer calls `window.gitbar.identifyAnalytics`/`trackAnalytics`/`resetAnalytics` over the preload IPC bridge, validated in `main.ts`'s `track-analytics` handler). No events send until `.env` has a real project token.
 - **Node**: ALWAYS run node/npm via nvm first: `source ~/.nvm/nvm.sh && nvm use`. System node is v16 and breaks `vite build`. `.nvmrc` pins 18.18.0.
 
 ## Releasing

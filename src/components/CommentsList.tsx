@@ -38,6 +38,7 @@ export function CommentsList({ items, showMyComment, emptyTitle = 'No comments',
 
   const handleClick = (item: CommentActivity) => {
     if (!item.read) markCommentRead(item.id)
+    window.gitbar?.trackAnalytics('comment_opened', { comment_type: showMyComment ? 'reply' : 'comment' })
     window.gitbar?.openExternal(item.comment.html_url)
   }
 
@@ -61,7 +62,11 @@ export function CommentsList({ items, showMyComment, emptyTitle = 'No comments',
               <button
                 className="comment-dismiss-btn"
                 title="Dismiss — remove this comment"
-                onClick={e => { e.stopPropagation(); dismissComment(item.id) }}
+                onClick={e => {
+                  e.stopPropagation()
+                  dismissComment(item.id)
+                  window.gitbar?.trackAnalytics('comment_dismissed', { comment_type: showMyComment ? 'reply' : 'comment' })
+                }}
               >
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
