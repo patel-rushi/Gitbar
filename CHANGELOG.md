@@ -5,6 +5,8 @@
 - Tabs now show how many items are inside them.
 - Removed the mark all read and clear badge buttons now that the count updates itself.
 - Fixed the unread dot sometimes showing for comments you already dismissed or hid.
+- Review status icons (approved, commented, changes requested) now look more like GitHub's own icons and are a bit bigger.
+- In Review Requested, repos are now color-coded by org and name so you can spot PRs from the same place at a glance.
 
 ## v1.2.10
 - My PRs now show a distinct CI pipeline status chip.

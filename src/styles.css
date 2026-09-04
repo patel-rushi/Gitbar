@@ -792,6 +792,11 @@ html, body, #root {
   gap: 6px;
 }
 
+.pr-repo-org,
+.pr-repo-name {
+  font-weight: 600;
+}
+
 .pr-title {
   font-size: 13px;
   font-weight: 500;
@@ -842,7 +847,7 @@ html, body, #root {
   color: var(--accent);
 }
 .review-state-icon.changes {
-  color: var(--orange);
+  color: var(--red);
 }
 
 .review-state-icon.requested {
@@ -854,10 +859,10 @@ html, body, #root {
 }
 
 .review-state-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--orange);
   display: inline-block;
 }
 

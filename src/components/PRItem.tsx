@@ -8,11 +8,27 @@ function getStatus(pr: PullRequest): 'open' | 'draft' | 'merged' | 'closed' {
   return 'open'
 }
 
+// Deterministic light hues for org and repo, so PRs group by org while repos
+// within that org still read as visually distinct.
+function hueFromString(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  return Math.abs(hash) % 360
+}
+
+function orgColor(org: string): string {
+  return `hsl(${hueFromString(org)}, 65%, 80%)`
+}
+
+function repoColor(repoFullName: string): string {
+  return `hsl(${(hueFromString(repoFullName) + 150) % 360}, 65%, 80%)`
+}
+
 function ReviewStateIcon({ state, title }: { state: ReviewState; title: string }) {
   if (state === 'APPROVED') {
     return (
       <span className="review-state-icon approved" title={title}>
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
           <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
         </svg>
       </span>
@@ -21,8 +37,9 @@ function ReviewStateIcon({ state, title }: { state: ReviewState; title: string }
   if (state === 'CHANGES_REQUESTED') {
     return (
       <span className="review-state-icon changes" title={title}>
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5-6a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM10 10l-4-4" />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="4" />
+          <line x1="8" y1="12" x2="16" y2="12" />
         </svg>
       </span>
     )
@@ -30,7 +47,7 @@ function ReviewStateIcon({ state, title }: { state: ReviewState; title: string }
   if (state === 'COMMENTED') {
     return (
       <span className="review-state-icon commented" title={title}>
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
           <path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
         </svg>
       </span>
@@ -42,7 +59,7 @@ function ReviewStateIcon({ state, title }: { state: ReviewState; title: string }
 function CommentStateIcon({ title }: { title: string }) {
   return (
     <span className="review-state-icon commented" title={title}>
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
         <path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z" />
       </svg>
     </span>
@@ -50,7 +67,7 @@ function CommentStateIcon({ title }: { title: string }) {
 }
 
 function NoActivityDot() {
-  return <span className="review-state-dot" title="No review activity yet" />
+  return <span className="review-state-dot" title="Pending review" />
 }
 
 function PipelineStateBadge({ state }: { state: PipelineState }) {
@@ -125,6 +142,7 @@ function describeIncomingReviewState(state: ReviewState, approvedBy?: string[]):
 
 export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, showReviewRequestedState, showPipelineState, onIgnore, ignoreVariant = 'cross', ignoreTitle, onClick, timeSource = 'updated' }: PRItemProps) {
   const status = getStatus(pr)
+  const [orgName, repoName] = pr.repo_full_name.split('/')
   const timestamp = timeSource === 'created' ? pr.created_at : pr.updated_at
   const date = new Date(timestamp)
   const timeAgo = formatDistanceToNow(date, { addSuffix: true })
@@ -183,8 +201,17 @@ export function PRItem({ pr, unread, showReviewState, showIncomingReviewState, s
       <img className="pr-avatar" src={pr.user.avatar_url} alt={pr.user.login} />
       <div className="pr-content">
         <div className="pr-repo">
-          <span className={`status-dot ${status}`} />
-          {pr.repo_full_name}
+          {showReviewRequestedState ? (
+            <>
+              <span className="pr-repo-org" style={{ color: orgColor(orgName) }}>{orgName}</span>
+              <span className="pr-repo-name" style={{ color: repoColor(pr.repo_full_name) }}>/{repoName}</span>
+            </>
+          ) : (
+            <>
+              <span className={`status-dot ${status}`} />
+              {pr.repo_full_name}
+            </>
+          )}
         </div>
         <div className="pr-title">{pr.title}</div>
         <div className="pr-meta">
