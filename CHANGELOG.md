@@ -1,12 +1,12 @@
 # Changelog
 
 ## Unreleased
-- The menu bar badge and tray tooltip now always show how many PRs are waiting on your review, and it stays accurate after a restart.
-- Tabs now show how many items are inside them.
-- Removed the mark all read and clear badge buttons now that the count updates itself.
-- Fixed the unread dot sometimes showing for comments you already dismissed or hid.
-- Review status icons (approved, commented, changes requested) now look more like GitHub's own icons and are a bit bigger.
-- In Review Requested, repos are now color-coded by org and name so you can spot PRs from the same place at a glance.
+
+## v1.2.11
+- Menu bar badge count is now always accurate; manual clear buttons removed.
+- Tabs show item counts; fixed false unread dots on dismissed comments.
+- Review status icons now look more like GitHub's and are easier to see.
+- Repos in Review Requested now show subtle color-coding by org.
 
 ## v1.2.10
 - My PRs now show a distinct CI pipeline status chip.

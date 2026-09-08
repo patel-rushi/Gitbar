@@ -24,6 +24,8 @@ The `## vX.Y.Z` bullets are shown verbatim in the app's update panel, so write t
 - Capitalize, end with a period, no hyphens/em-dashes as punctuation.
 - Frame from the user's side ("You can now…", "… now shows…", "Fixed a…").
 - Skip purely internal work, or fold it into one line like "Minor under-the-hood maintenance."
+- Keep the whole list compact (aim for 4-5 bullets max): the update panel is a small menu bar popover, so combine closely related changes into one bullet rather than listing every commit separately.
+- Keep bullets terse: max ~12 words each, max 5 bullets total.
 
 Real examples that hit the mark:
 - "You can now edit a pinned custom filter instead of recreating it."
