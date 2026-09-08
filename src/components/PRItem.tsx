@@ -17,11 +17,11 @@ function hueFromString(str: string): number {
 }
 
 function orgColor(org: string): string {
-  return `hsl(${hueFromString(org)}, 65%, 80%)`
+  return `color-mix(in srgb, hsl(${hueFromString(org)}, 45%, 70%) 55%, var(--text-muted))`
 }
 
 function repoColor(repoFullName: string): string {
-  return `hsl(${(hueFromString(repoFullName) + 150) % 360}, 65%, 80%)`
+  return `color-mix(in srgb, hsl(${(hueFromString(repoFullName) + 150) % 360}, 45%, 70%) 55%, var(--text-muted))`
 }
 
 function ReviewStateIcon({ state, title }: { state: ReviewState; title: string }) {
