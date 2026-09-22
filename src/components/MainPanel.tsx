@@ -15,6 +15,7 @@ export function MainPanel() {
     username, avatarUrl, activeTab, setActiveTab, setView, setSettingsSection, setSettingsOrigin,
     settings, updateSettings,
     myPRs, draftPRs, reviewedPRs, reviewRequestedPRs,
+    reviewRequestedHasMore, isLoadingMoreReviewRequested, loadMoreReviewRequested,
     myPRComments, reviewReplies,
     badgeCount, pollError,
     tabs, isPolling, lastPollAt, poll, startPolling,
@@ -123,12 +124,23 @@ export function MainPanel() {
                 <span className="review-requested-config-subtitle">
                   {reviewFilterCount > 0
                     ? `${reviewFilterCount} active filter${reviewFilterCount > 1 ? 's' : ''}`
-                    : 'Showing all requests'}
+                    : 'No filters, showing requests for you and your teams'}
                 </span>
               </span>
               <span className="review-requested-config-cta">Configure</span>
             </button>
-            <PRList prs={reviewRequestedPRs} emptyTitle="No review requests" emptyText="No one has requested your review." showIncomingReviewState showReviewRequestedState allowIgnore timeSource="created" />
+            <PRList
+              prs={reviewRequestedPRs}
+              emptyTitle="No review requests"
+              emptyText="No one has requested your review."
+              showIncomingReviewState
+              showReviewRequestedState
+              allowIgnore
+              timeSource="created"
+              hasMore={reviewRequestedHasMore}
+              isLoadingMore={isLoadingMoreReviewRequested}
+              onLoadMore={loadMoreReviewRequested}
+            />
           </div>
         )
       case 'pinned':

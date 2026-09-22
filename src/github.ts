@@ -1,4 +1,5 @@
 import type { PullRequest, GitHubUser, ReviewState, PipelineState } from './types'
+import { isPullRequest } from './types'
 
 const API_BASE = 'https://api.github.com'
 const GRAPHQL_URL = 'https://api.github.com/graphql'
@@ -21,7 +22,7 @@ function headers(token: string): HeadersInit {
 async function checkResponse(res: Response): Promise<void> {
   if (res.ok) return
   if (res.status === 401) throw new GitHubApiError(401, 'Token expired or invalid')
-  if (res.status === 403) {
+  if (res.status === 403 || res.status === 429) {
     const remaining = res.headers.get('x-ratelimit-remaining')
     if (remaining === '0') {
       const reset = res.headers.get('x-ratelimit-reset')
@@ -31,9 +32,73 @@ async function checkResponse(res: Response): Promise<void> {
         : 'Rate limited by GitHub'
       throw new GitHubApiError(403, msg)
     }
-    throw new GitHubApiError(403, 'Access denied')
+    const retryAfter = res.headers.get('retry-after')
+    if (retryAfter) {
+      throw new GitHubApiError(403, `GitHub is busy, showing cached PRs, retrying in ~${retryAfter}s`)
+    }
+    let bodyMessage = ''
+    try {
+      const json = await res.clone().json()
+      bodyMessage = json?.message || ''
+    } catch { /* body wasn't JSON */ }
+    if (/secondary rate limit|abuse|rate limit|exceeded/i.test(bodyMessage)) {
+      throw new GitHubApiError(403, 'GitHub search is temporarily busy — keeping cached PRs until next refresh')
+    }
+    throw new GitHubApiError(403, bodyMessage || 'GitHub denied request, token may be missing permission or SSO authorization')
   }
   throw new GitHubApiError(res.status, `GitHub API error (${res.status})`)
+}
+
+// GitHub's Search API enforces a much stricter "secondary" (abuse-detection) limit
+// than the main REST quota (roughly 30 requests/minute), and it's especially sensitive
+// to bursts (e.g. one search call per team member fired all at once). This limiter caps
+// both how many search requests run at once and spaces them out with a minimum interval,
+// so fan-outs get paced smoothly instead of tripping the secondary limit.
+const SEARCH_MAX_CONCURRENT = 2
+const SEARCH_MIN_INTERVAL_MS = 300
+const SEARCH_RATE_LIMIT_PER_MINUTE = 20
+const SEARCH_RATE_WINDOW_MS = 60_000
+let activeSearchRequests = 0
+let lastSearchStartTime = 0
+const searchCallTimestamps: number[] = []
+
+function acquireSearchSlot(): Promise<void> {
+  return new Promise(resolve => {
+    const tryAcquire = () => {
+      const now = Date.now()
+      const cutoff = now - SEARCH_RATE_WINDOW_MS
+      while (searchCallTimestamps.length && searchCallTimestamps[0] < cutoff) searchCallTimestamps.shift()
+
+      const timeSinceLast = now - lastSearchStartTime
+      if (
+        activeSearchRequests < SEARCH_MAX_CONCURRENT &&
+        searchCallTimestamps.length < SEARCH_RATE_LIMIT_PER_MINUTE &&
+        timeSinceLast >= SEARCH_MIN_INTERVAL_MS
+      ) {
+        activeSearchRequests++
+        lastSearchStartTime = Date.now()
+        searchCallTimestamps.push(Date.now())
+        resolve()
+      } else {
+        const wait = Math.max(50, SEARCH_MIN_INTERVAL_MS - timeSinceLast)
+        setTimeout(tryAcquire, wait)
+      }
+    }
+    tryAcquire()
+  })
+}
+
+function releaseSearchSlot() {
+  activeSearchRequests--
+}
+
+async function searchFetch(url: string, token: string): Promise<Response> {
+  await acquireSearchSlot()
+  try {
+    return await fetch(url, { headers: headers(token) })
+  } finally {
+    releaseSearchSlot()
+  }
 }
 
 // Cached fetcher with TTL
@@ -58,6 +123,50 @@ function getCached(key: string): string[] | null {
 
 function setCache(key: string, data: string[]) {
   localStorage.setItem(key, JSON.stringify({ data, fetchedAt: Date.now() }))
+}
+
+// Search results already carry `updated_at`, so a PR whose timestamp is unchanged since
+// the last poll cannot have new reviews, checks or comments. Keying enrichment on it lets
+// repeat polls skip those per-PR requests entirely without ever showing stale data.
+const ENRICHMENT_CACHE_MAX = 400
+const enrichmentCache = new Map<string, unknown>()
+
+function enrichmentKey(field: string, pr: PullRequest): string {
+  return `${field}:${pr.repo_full_name}#${pr.number}@${pr.updated_at}`
+}
+
+async function cachedEnrichment<T>(key: string, compute: () => Promise<T | undefined>): Promise<T | undefined> {
+  if (enrichmentCache.has(key)) return enrichmentCache.get(key) as T
+  const value = await compute()
+  if (value === undefined) return undefined // failed lookup: retry next poll rather than cache a gap
+  if (enrichmentCache.size >= ENRICHMENT_CACHE_MAX) {
+    const oldest = enrichmentCache.keys().next().value
+    if (oldest !== undefined) enrichmentCache.delete(oldest)
+  }
+  enrichmentCache.set(key, value)
+  return value
+}
+
+// Same freshness trick for the comment endpoints, which cost 3 requests per PR.
+const commentCache = new Map<string, { updatedAt: string; activities: CommentActivity[] }>()
+
+function splitByCommentFreshness(scope: string, prs: PullRequest[]) {
+  const fresh: CommentActivity[] = []
+  const stale: PullRequest[] = []
+  for (const pr of prs) {
+    const entry = commentCache.get(`${scope}:${pr.repo_full_name}#${pr.number}`)
+    if (entry && entry.updatedAt === pr.updated_at) fresh.push(...entry.activities)
+    else stale.push(pr)
+  }
+  return { fresh, stale }
+}
+
+function rememberComments(scope: string, pr: PullRequest, activities: CommentActivity[]) {
+  if (commentCache.size >= ENRICHMENT_CACHE_MAX) {
+    const oldest = commentCache.keys().next().value
+    if (oldest !== undefined) commentCache.delete(oldest)
+  }
+  commentCache.set(`${scope}:${pr.repo_full_name}#${pr.number}`, { updatedAt: pr.updated_at, activities })
 }
 
 export async function fetchRepoLabels(token: string, owner: string, repo: string): Promise<string[]> {
@@ -128,6 +237,25 @@ export async function fetchAllOrgTeamSlugs(token: string, org: string): Promise<
   }
 }
 
+// `/orgs/{org}/members` only lists members with public visibility (or all members if
+// the token belongs to an org owner), so typing a valid colleague's login often finds
+// nothing there. This falls back to a live GitHub-wide username search so any login
+// prefix match still shows up while typing.
+export async function searchGitHubUsernames(token: string, query: string): Promise<string[]> {
+  const trimmed = query.trim()
+  if (trimmed.length < 2) return []
+  try {
+    const q = encodeURIComponent(`${trimmed} in:login type:user`)
+    const res = await searchFetch(`${API_BASE}/search/users?q=${q}&per_page=10`, token)
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.items || []).map((u: any) => u.login)
+  } catch {
+    return []
+  }
+}
+
+
 export async function validateToken(token: string): Promise<GitHubUser | null> {
   try {
     const res = await fetch(`${API_BASE}/user`, { headers: headers(token) })
@@ -170,9 +298,9 @@ function mapSearchItem(item: any): PullRequest {
 
 export async function fetchMyPRs(token: string, username: string): Promise<PullRequest[]> {
   const q = encodeURIComponent(`is:pr is:open author:${username} -draft:true`)
-  const res = await fetch(
+  const res = await searchFetch(
     `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=30`,
-    { headers: headers(token) }
+    token
   )
   await checkResponse(res)
   const data = await res.json()
@@ -187,19 +315,24 @@ export async function fetchReviewedPRs(token: string, username: string): Promise
     `is:pr is:open commenter:${username} -author:${username}`
   ]
   const responses = await Promise.allSettled(
-    queries.map(q =>
-      fetch(
+    queries.map(async q => {
+      const res = await searchFetch(
         `${API_BASE}/search/issues?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=30`,
-        { headers: headers(token) }
+        token
       )
-    )
+      await checkResponse(res)
+      return res
+    })
   )
+
+  // One half failing still leaves a useful list; only a total failure is worth raising.
+  const ok = responses.filter(r => r.status === 'fulfilled')
+  if (ok.length === 0) throw (responses[0] as PromiseRejectedResult).reason
 
   const seen = new Set<number>()
   const prs: PullRequest[] = []
-  for (const result of responses) {
-    if (result.status !== 'fulfilled' || !result.value.ok) continue
-    const data = await result.value.json()
+  for (const res of ok) {
+    const data = await (res as PromiseFulfilledResult<Response>).value.json()
     for (const item of data.items || []) {
       const pr = mapSearchItem(item)
       if (!seen.has(pr.id)) {
@@ -214,118 +347,164 @@ export async function fetchReviewedPRs(token: string, username: string): Promise
   )
 }
 
+// Authors of PRs you're actively involved in (commented on, reviewed, or otherwise
+// participate in) — a proxy for "people you work with" for the filter suggestions.
+// Cached like team lookups: this doesn't change minute to minute, so no need to
+// re-run two search queries every time the filter panel opens.
+export async function fetchFrequentCollaborators(token: string, username: string): Promise<string[]> {
+  const cacheKey = `gitbar_cache_collaborators_${username}`
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+
+  const queries = [
+    `is:pr involves:${username} -author:${username}`,
+    `is:pr commenter:${username} -author:${username}`
+  ]
+  const responses = await Promise.allSettled(
+    queries.map(q =>
+      searchFetch(
+        `${API_BASE}/search/issues?q=${encodeURIComponent(q)}&sort=updated&order=desc&per_page=30`,
+        token
+      )
+    )
+  )
+
+  const counts = new Map<string, number>()
+  let anyOk = false
+  for (const result of responses) {
+    if (result.status !== 'fulfilled' || !result.value.ok) continue
+    anyOk = true
+    const data = await result.value.json()
+    for (const item of data.items || []) {
+      const login = item.user?.login
+      if (!login || login === username || login.endsWith('[bot]')) continue
+      counts.set(login, (counts.get(login) || 0) + 1)
+    }
+  }
+
+  const sorted = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([login]) => login)
+  // Both queries failing (usually a rate limit) must not cache an empty list, or the
+  // suggestions stay hidden for the whole TTL.
+  if (anyOk) setCache(cacheKey, sorted)
+  return sorted
+}
+
+export const REVIEW_REQUESTED_PAGE_SIZE = 25
+export const REVIEW_REQUESTED_MAX_PAGES = 4
+
+export interface ReviewRequestedResult {
+  prs: PullRequest[]
+  hasMore: boolean
+}
+
+async function runPRSearch(
+  token: string,
+  query: string,
+  page: number
+): Promise<{ prs: PullRequest[]; totalCount: number }> {
+  const res = await searchFetch(
+    `${API_BASE}/search/issues?q=${encodeURIComponent(query)}&sort=updated&order=desc` +
+      `&per_page=${REVIEW_REQUESTED_PAGE_SIZE}&page=${page}`,
+    token
+  )
+  await checkResponse(res)
+  const data = await res.json()
+  return {
+    prs: (data.items || []).map(mapSearchItem),
+    totalCount: typeof data.total_count === 'number' ? data.total_count : 0
+  }
+}
+
+// GitHub ORs a repeated qualifier, so every author (or team, or org) fits in one request
+// instead of one request each. A 422 means the query was rejected — most often because a
+// listed user or team doesn't exist — so retry in halves to isolate the bad one and drop
+// only it. Never split on a rate limit: that would only add requests.
+async function runBatchedSearch(
+  token: string,
+  base: string,
+  qualifiers: string[],
+  page: number
+): Promise<{ prs: PullRequest[]; totalCount: number }> {
+  if (qualifiers.length === 0) return { prs: [], totalCount: 0 }
+  try {
+    return await runPRSearch(token, `${base} ${qualifiers.join(' ')}`, page)
+  } catch (err) {
+    if (!(err instanceof GitHubApiError) || err.status !== 422) throw err
+    // Narrowed to a single bad qualifier: skip it so one typo can't empty the whole list.
+    if (qualifiers.length === 1) return { prs: [], totalCount: 0 }
+    const mid = Math.ceil(qualifiers.length / 2)
+    const [left, right] = await Promise.all([
+      runBatchedSearch(token, base, qualifiers.slice(0, mid), page),
+      runBatchedSearch(token, base, qualifiers.slice(mid), page)
+    ])
+    return {
+      prs: [...left.prs, ...right.prs],
+      totalCount: Math.max(left.totalCount, right.totalCount)
+    }
+  }
+}
+
 export async function fetchReviewRequestedPRs(
   token: string,
   username: string,
   filterTargets?: string[],
-  userTeams?: string[],
-  teamMembers?: string[]
-): Promise<PullRequest[]> {
-  const targets = filterTargets?.length ? filterTargets : [username]
+  pageCount = 1
+): Promise<ReviewRequestedResult> {
+  const targets = filterTargets || []
+  const teams = targets.filter(t => t.includes('/'))
+  // Your own entry means "review asked of me directly", not "PRs I wrote", so it needs
+  // its own qualifier and can't be OR'd into the author batch.
+  const self = targets.find(t => !t.includes('/') && t.toLowerCase() === username.toLowerCase())
+  const authors = targets.filter(t => !t.includes('/') && t !== self)
+  const pages = Array.from(
+    { length: Math.min(Math.max(pageCount, 1), REVIEW_REQUESTED_MAX_PAGES) },
+    (_, i) => i + 1
+  )
 
-  const selectedTeams = targets.filter(t => t.includes('/'))
-  const selectedUsers = targets.filter(t => !t.includes('/'))
+  const base = 'is:pr is:open draft:false'
+  const groups: { base: string; qualifiers: string[] }[] = []
 
-  const allPRs: PullRequest[] = []
+  if (targets.length === 0) {
+    // `review-requested:` covers both requests aimed at you and ones routed to a team
+    // you belong to, which is exactly the default queue.
+    groups.push({ base, qualifiers: [`review-requested:${username}`] })
+  } else {
+    if (authors.length > 0) groups.push({ base, qualifiers: authors.map(a => `author:${a}`) })
+    if (teams.length > 0) {
+      groups.push({ base, qualifiers: teams.map(t => `team-review-requested:${t}`) })
+    }
+    if (self) groups.push({ base, qualifiers: [`user-review-requested:${self}`] })
+  }
+
+  const results = await Promise.all(
+    groups.flatMap(group => pages.map(page => runBatchedSearch(token, group.base, group.qualifiers, page)))
+  )
+
   const seenIds = new Set<number>()
-
-  // For team targets, use team-review-requested (clean, no noise)
-  const teamFetches = selectedTeams.map(team => {
-    const q = encodeURIComponent(`is:pr is:open draft:false team-review-requested:${team}`)
-    return fetch(
-      `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=30`,
-      { headers: headers(token) }
-    )
-  })
-
-  // For user targets, exclude PRs that are only there via non-selected teams
-  const excludedTeams = (userTeams || []).filter(t => !selectedTeams.includes(t))
-  const userFetches = selectedUsers.map(user => {
-    const exclusions = excludedTeams.map(t => `-team-review-requested:${t}`).join(' ')
-    const q = encodeURIComponent(`is:pr is:open draft:false review-requested:${user} ${exclusions}`.trim())
-    return fetch(
-      `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=30`,
-      { headers: headers(token) }
-    )
-  })
-
-  const responses = await Promise.allSettled([...teamFetches, ...userFetches])
-
-  for (const result of responses) {
-    if (result.status === 'rejected') continue
-    const res = result.value
-    if (!res.ok) continue
-    const data = await res.json()
-    for (const item of data.items || []) {
-      const pr = mapSearchItem(item)
-      if (!seenIds.has(pr.id)) {
-        seenIds.add(pr.id)
-        allPRs.push(pr)
-      }
+  const allPRs: PullRequest[] = []
+  for (const result of results) {
+    for (const pr of result.prs) {
+      if (seenIds.has(pr.id)) continue
+      seenIds.add(pr.id)
+      allPRs.push(pr)
     }
   }
 
-  return allPRs.sort((a, b) =>
-    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  )
-}
-
-const TEAMMATE_PR_CACHE_TTL = 5 * 60 * 1000
-
-export async function fetchTeammatePRs(
-  token: string,
-  username: string,
-  teamMembers: string[]
-): Promise<PullRequest[]> {
-  const cacheKey = 'gitbar_cache_teammate_prs'
-  const cached = getCached(cacheKey)
-  if (cached) {
-    try { return JSON.parse(localStorage.getItem(cacheKey + '_full') || '[]') } catch { /* fall through */ }
+  return {
+    prs: allPRs.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+    hasMore:
+      pages.length < REVIEW_REQUESTED_MAX_PAGES &&
+      results.some(r => r.totalCount > pages.length * REVIEW_REQUESTED_PAGE_SIZE)
   }
-
-  const teammates = teamMembers.filter(m => m !== username)
-  if (teammates.length === 0) return []
-
-  const allPRs: PullRequest[] = []
-  const seenIds = new Set<number>()
-
-  const fetches = teammates.map(member => {
-    const q = encodeURIComponent(`is:pr is:open author:${member} draft:false`)
-    return fetch(
-      `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=10`,
-      { headers: headers(token) }
-    )
-  })
-
-  const responses = await Promise.allSettled(fetches)
-  for (const result of responses) {
-    if (result.status === 'rejected') continue
-    const res = result.value
-    if (!res.ok) continue
-    const data = await res.json()
-    for (const item of data.items || []) {
-      const pr = mapSearchItem(item)
-      if (!seenIds.has(pr.id)) {
-        seenIds.add(pr.id)
-        allPRs.push(pr)
-      }
-    }
-  }
-
-  const sorted = allPRs.sort((a, b) =>
-    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  )
-
-  setCache(cacheKey, ['cached'])
-  localStorage.setItem(cacheKey + '_full', JSON.stringify(sorted))
-  return sorted
 }
 
 export async function fetchDraftPRs(token: string, username: string): Promise<PullRequest[]> {
   const q = encodeURIComponent(`is:pr is:open draft:true author:${username}`)
-  const res = await fetch(
+  const res = await searchFetch(
     `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=30`,
-    { headers: headers(token) }
+    token
   )
   await checkResponse(res)
   const data = await res.json()
@@ -338,20 +517,20 @@ export async function fetchMyReviewState(
   repo: string,
   prNumber: number,
   username: string
-): Promise<ReviewState> {
+): Promise<ReviewState | undefined> {
   try {
     const res = await fetch(
       `${API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}/reviews?per_page=100`,
       { headers: headers(token) }
     )
-    if (!res.ok) return null
+    if (!res.ok) return undefined
     const reviews: any[] = await res.json()
     const myReviews = reviews.filter(r => r.user?.login === username)
     if (myReviews.length === 0) return null
     const latest = myReviews[myReviews.length - 1]
     return latest.state as ReviewState
   } catch {
-    return null
+    return undefined
   }
 }
 
@@ -364,7 +543,11 @@ export async function enrichWithReviewState(
     prs.map(async pr => {
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return pr
-      const state = await fetchMyReviewState(token, owner, repo, pr.number, username)
+      const state = await cachedEnrichment(
+        enrichmentKey('myReview', pr),
+        () => fetchMyReviewState(token, owner, repo, pr.number, username)
+      )
+      if (state === undefined) return pr
       return { ...pr, myReviewState: state }
     })
   )
@@ -377,13 +560,13 @@ async function fetchIncomingReviewSummary(
   repo: string,
   prNumber: number,
   authorLogin: string
-): Promise<{ state: ReviewState; approvedBy: string[] }> {
+): Promise<{ state: ReviewState; approvedBy: string[] } | undefined> {
   try {
     const res = await fetch(
       `${API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}/reviews?per_page=100`,
       { headers: headers(token) }
     )
-    if (!res.ok) return { state: null, approvedBy: [] }
+    if (!res.ok) return undefined
     const reviews: any[] = await res.json()
 
     const latestByReviewer = new Map<string, { state: string; submittedAt: string }>()
@@ -409,7 +592,7 @@ async function fetchIncomingReviewSummary(
     if (states.some(([, v]) => v.state === 'COMMENTED')) return { state: 'COMMENTED', approvedBy }
     return { state: null, approvedBy }
   } catch {
-    return { state: null, approvedBy: [] }
+    return undefined
   }
 }
 
@@ -421,7 +604,11 @@ export async function enrichWithIncomingReviewState(
     prs.map(async pr => {
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return pr
-      const summary = await fetchIncomingReviewSummary(token, owner, repo, pr.number, pr.user.login)
+      const summary = await cachedEnrichment(
+        enrichmentKey('incomingReview', pr),
+        () => fetchIncomingReviewSummary(token, owner, repo, pr.number, pr.user.login)
+      )
+      if (!summary) return pr
       return { ...pr, incomingReviewState: summary.state, approvedBy: summary.approvedBy }
     })
   )
@@ -441,7 +628,7 @@ async function fetchPipelineState(
   owner: string,
   repo: string,
   prNumber: number
-): Promise<PipelineState> {
+): Promise<PipelineState | undefined> {
   const query = `
     query($owner: String!, $repo: String!, $number: Int!) {
       repository(owner: $owner, name: $repo) {
@@ -469,13 +656,13 @@ async function fetchPipelineState(
       },
       body: JSON.stringify({ query, variables: { owner, repo, number: prNumber } })
     })
-    if (!res.ok) return null
+    if (!res.ok) return undefined
 
     const data = await res.json()
     const state = data?.data?.repository?.pullRequest?.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state
     return toPipelineState(typeof state === 'string' ? state : null)
   } catch {
-    return null
+    return undefined
   }
 }
 
@@ -487,7 +674,11 @@ export async function enrichWithPipelineState(
     prs.map(async pr => {
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return pr
-      const pipelineState = await fetchPipelineState(token, owner, repo, pr.number)
+      const pipelineState = await cachedEnrichment(
+        enrichmentKey('pipeline', pr),
+        () => fetchPipelineState(token, owner, repo, pr.number)
+      )
+      if (pipelineState === undefined) return pr
       return { ...pr, pipelineState }
     })
   )
@@ -505,8 +696,10 @@ export async function fetchCommentsOnMyPRs(
   const recentPRs = prs.slice(0, 5)
   if (recentPRs.length === 0) return []
 
+  const { fresh, stale } = splitByCommentFreshness('myPRs', recentPRs)
+
   const results = await Promise.allSettled(
-    recentPRs.map(async pr => {
+    stale.map(async pr => {
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return []
 
@@ -550,13 +743,18 @@ export async function fetchCommentsOnMyPRs(
         }
       }
 
-      return activities
+      const anyOk = [reviewCommentsRes, issueRes, reviewsRes]
+        .some(r => r.status === 'fulfilled' && r.value.ok)
+      return anyOk ? activities : null
     })
   )
 
-  const all: CommentActivity[] = []
-  for (const r of results) {
-    if (r.status === 'fulfilled') all.push(...r.value)
+  const all: CommentActivity[] = [...fresh]
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]
+    if (r.status !== 'fulfilled' || r.value === null) continue
+    rememberComments('myPRs', stale[i], r.value)
+    all.push(...r.value)
   }
   return all.sort((a, b) =>
     new Date(b.comment.created_at).getTime() - new Date(a.comment.created_at).getTime()
@@ -605,8 +803,10 @@ export async function fetchRepliesToMyComments(
   const recentPRs = prs.slice(0, 10)
   if (recentPRs.length === 0) return []
 
+  const { fresh, stale } = splitByCommentFreshness('replies', recentPRs)
+
   const results = await Promise.allSettled(
-    recentPRs.map(async pr => {
+    stale.map(async pr => {
       const [owner, repo] = pr.repo_full_name.split('/')
       if (!owner || !repo) return []
 
@@ -669,13 +869,18 @@ export async function fetchRepliesToMyComments(
         }
       }
 
-      return out
+      const anyOk = [inlineRes, issueRes, reviewsRes]
+        .some(r => r.status === 'fulfilled' && r.value.ok)
+      return anyOk ? out : null
     })
   )
 
-  const all: CommentActivity[] = []
-  for (const r of results) {
-    if (r.status === 'fulfilled') all.push(...r.value)
+  const all: CommentActivity[] = [...fresh]
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]
+    if (r.status !== 'fulfilled' || r.value === null) continue
+    rememberComments('replies', stale[i], r.value)
+    all.push(...r.value)
   }
   return all.sort((a, b) =>
     new Date(b.comment.created_at).getTime() - new Date(a.comment.created_at).getTime()
@@ -764,9 +969,9 @@ export async function fetchSquadActivity(
   // Query PRs each teammate is involved in (recent activity)
   const fetches = Array.from(allMembers).map(member => {
     const q = encodeURIComponent(`is:pr is:open involves:${member} -author:${username}`)
-    return fetch(
+    return searchFetch(
       `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=10`,
-      { headers: headers(token) }
+      token
     )
   })
 
@@ -815,11 +1020,16 @@ export async function fetchUserTeams(token: string): Promise<TeamInfo[]> {
 }
 
 export async function fetchUserOrgs(token: string): Promise<string[]> {
+  const cacheKey = 'gitbar_cache_user_orgs'
+  const cached = getCached(cacheKey)
+  if (cached) return cached
   try {
     const res = await fetch(`${API_BASE}/user/orgs?per_page=100`, { headers: headers(token) })
     if (!res.ok) return []
     const orgs: any[] = await res.json()
-    return orgs.map(o => o.login)
+    const logins = orgs.map(o => o.login)
+    setCache(cacheKey, logins)
+    return logins
   } catch {
     return []
   }
@@ -928,9 +1138,9 @@ export async function fetchFilteredPRs(
   }
 
   const q = encodeURIComponent(parts.join(' '))
-  const res = await fetch(
+  const res = await searchFetch(
     `${API_BASE}/search/issues?q=${q}&sort=updated&order=desc&per_page=30`,
-    { headers: headers(token) }
+    token
   )
   await checkResponse(res)
   const data = await res.json()

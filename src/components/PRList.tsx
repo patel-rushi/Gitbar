@@ -1,4 +1,5 @@
 import type { PullRequest } from '../types'
+import { isPullRequest } from '../types'
 import { PRItem } from './PRItem'
 import { InboxIcon } from './Icons'
 import { useStore } from '../store'
@@ -14,15 +15,20 @@ interface PRListProps {
   allowIgnore?: boolean
   allowDismiss?: boolean
   timeSource?: 'updated' | 'created'
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
 }
 
-export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, showReviewRequestedState, showPipelineState, allowIgnore, allowDismiss, timeSource }: PRListProps) {
+export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Nothing here yet.', showReviewState, showIncomingReviewState, showReviewRequestedState, showPipelineState, allowIgnore, allowDismiss, timeSource, hasMore, isLoadingMore, onLoadMore }: PRListProps) {
   const store = useStore()
   const { ignoredPRs, ignorePR, dismissReviewedPR } = store
 
+  const validPRs = (prs || []).filter(isPullRequest)
+
   const filteredPRs = allowIgnore || allowDismiss
-    ? prs.filter(pr => !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`))
-    : prs
+    ? validPRs.filter(pr => !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`))
+    : validPRs
 
   if (filteredPRs.length === 0) {
     return (
@@ -69,6 +75,16 @@ export function PRList({ prs, emptyTitle = 'No pull requests', emptyText = 'Noth
           timeSource={timeSource}
         />
       ))}
+      {hasMore && onLoadMore && (
+        <button
+          className="btn-secondary"
+          onClick={onLoadMore}
+          disabled={isLoadingMore}
+          style={{ width: '100%', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}
+        >
+          {isLoadingMore ? 'Loading…' : 'Load more'}
+        </button>
+      )}
     </div>
   )
 }

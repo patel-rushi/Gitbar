@@ -31,6 +31,18 @@ export interface PullRequest {
   pipelineState?: PipelineState
 }
 
+export function isPullRequest(pr: any): pr is PullRequest {
+  return !!(
+    pr &&
+    typeof pr === 'object' &&
+    typeof pr.id === 'number' &&
+    typeof pr.number === 'number' &&
+    typeof pr.repo_full_name === 'string' &&
+    pr.user &&
+    typeof pr.user.login === 'string'
+  )
+}
+
 export interface NotificationEvent {
   id: string
   type: 'reply_to_pr' | 'reply_to_comment' | 'mention' | 'review_requested'
@@ -105,6 +117,9 @@ export interface AppState {
   draftPRs: PullRequest[]
   reviewedPRs: PullRequest[]
   reviewRequestedPRs: PullRequest[]
+  reviewRequestedPages: number
+  reviewRequestedHasMore: boolean
+  isLoadingMoreReviewRequested: boolean
   userTeams: string[]
   
   myPRComments: CommentActivity[]
@@ -142,6 +157,7 @@ export interface AppState {
   updateSettings: (settings: Partial<AppSettings>) => void
   updateTabs: (tabs: TabConfig[]) => void
   poll: () => Promise<void>
+  loadMoreReviewRequested: () => Promise<void>
   startPolling: () => void
   stopPolling: () => void
 }
