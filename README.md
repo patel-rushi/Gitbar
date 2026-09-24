@@ -8,7 +8,7 @@ brew install --cask patel-rushi/gitbar/gitbar
 
 ## Features
 
-https://github.com/user-attachments/assets/ef8c6fe8-d426-440a-a516-9beac6c6d9ea
+https://github.com/user-attachments/assets/c7558076-7952-4fbd-bfe7-090e2d35d3a5
 
 
 - **Lives in your menu bar**: a quiet tray icon showing how many PRs are waiting on your review
