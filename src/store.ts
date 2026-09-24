@@ -153,6 +153,9 @@ async function loadReviewRequested(
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let filterChangePollTimer: ReturnType<typeof setTimeout> | null = null
+// Tracks whether the visible error came from the targeted refresh, so it only clears
+// errors it reported itself.
+let reviewRefreshOwnsError = false
 
 export const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_GITBAR_DEMO === '1'
 export const DEMO_TEAM_OPTIONS = [
@@ -803,6 +806,7 @@ export const useStore = create<AppState>((set, get) => ({
         pollError: softErrors[0] || null
       })
 
+      reviewRefreshOwnsError = false // the poll just reported the authoritative state
       window.gitbar?.updateBadge(badgeCount)
     } catch (err) {
       console.error('Poll error:', err)
@@ -827,25 +831,37 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   refreshReviewRequested: async () => {
-    if (DEMO_MODE) return
     const { token, username, settings, reviewRequestedPages } = get()
-    if (!token || !username) return
+    if (DEMO_MODE || !token || !username) {
+      set({ isRefreshingReviewRequested: false })
+      return
+    }
 
+    const filterAtStart = (settings.reviewRequestedFilter || []).join('\u0000')
     set({ isRefreshingReviewRequested: true })
     try {
       const { prs, hasMore } = await loadReviewRequested(
         token, username, settings, reviewRequestedPages, get().reviewedPRs
       )
+
+      // A newer refresh for a different filter may have landed while this ran.
+      const filterNow = (get().settings.reviewRequestedFilter || []).join('\u0000')
+      if (filterNow !== filterAtStart) return
+
       const badgeCount = getReviewRequestedCount(prs, get().ignoredPRs)
       saveToStorage('gitbar_review_requested_prs', prs)
       set({
         reviewRequestedPRs: prs,
         reviewRequestedHasMore: hasMore,
         badgeCount,
-        pollError: null
+        // Only clear an error this path reported; a poll failure about other lists
+        // must stay visible even though this list refreshed fine.
+        ...(reviewRefreshOwnsError ? { pollError: null } : {})
       })
+      reviewRefreshOwnsError = false
       window.gitbar?.updateBadge(badgeCount)
     } catch (err) {
+      reviewRefreshOwnsError = true
       if (err instanceof GitHubApiError) set({ pollError: err.message })
       else set({ pollError: 'Network error, check your connection' })
       throw err
