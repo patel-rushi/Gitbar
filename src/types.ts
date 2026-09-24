@@ -120,6 +120,7 @@ export interface AppState {
   reviewRequestedPages: number
   reviewRequestedHasMore: boolean
   isLoadingMoreReviewRequested: boolean
+  isRefreshingReviewRequested: boolean
   userTeams: string[]
   
   myPRComments: CommentActivity[]
@@ -158,6 +159,7 @@ export interface AppState {
   updateTabs: (tabs: TabConfig[]) => void
   poll: () => Promise<void>
   loadMoreReviewRequested: () => Promise<void>
+  refreshReviewRequested: () => Promise<void>
   startPolling: () => void
   stopPolling: () => void
 }

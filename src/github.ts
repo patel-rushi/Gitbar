@@ -28,7 +28,7 @@ async function checkResponse(res: Response): Promise<void> {
       const reset = res.headers.get('x-ratelimit-reset')
       const resetDate = reset ? new Date(Number(reset) * 1000) : null
       const msg = resetDate
-        ? `Rate limited — resets at ${resetDate.toLocaleTimeString()}`
+        ? `Rate limited, resets at ${resetDate.toLocaleTimeString()}`
         : 'Rate limited by GitHub'
       throw new GitHubApiError(403, msg)
     }
@@ -53,47 +53,69 @@ async function checkResponse(res: Response): Promise<void> {
 // than the main REST quota (roughly 30 requests/minute), and it's especially sensitive
 // to bursts (e.g. one search call per team member fired all at once). This limiter caps
 // both how many search requests run at once and spaces them out with a minimum interval,
-// so fan-outs get paced smoothly instead of tripping the secondary limit.
-const SEARCH_MAX_CONCURRENT = 2
-const SEARCH_MIN_INTERVAL_MS = 300
-const SEARCH_RATE_LIMIT_PER_MINUTE = 20
+// so fan-outs get paced smoothly instead of tripping the secondary limit. Queries are
+// batched now, so a poll costs a handful of searches rather than one per person, and the
+// pacing can be much tighter than it once needed to be.
+const SEARCH_MAX_CONCURRENT = 3
+const SEARCH_MIN_INTERVAL_MS = 120
+const SEARCH_RATE_LIMIT_PER_MINUTE = 26
 const SEARCH_RATE_WINDOW_MS = 60_000
 let activeSearchRequests = 0
 let lastSearchStartTime = 0
 const searchCallTimestamps: number[] = []
 
-function acquireSearchSlot(): Promise<void> {
-  return new Promise(resolve => {
-    const tryAcquire = () => {
-      const now = Date.now()
-      const cutoff = now - SEARCH_RATE_WINDOW_MS
-      while (searchCallTimestamps.length && searchCallTimestamps[0] < cutoff) searchCallTimestamps.shift()
+// Typeahead waits on a person, background polling doesn't, so interactive requests jump
+// the queue instead of sitting behind a poll's batch.
+interface SearchWaiter { interactive: boolean; resolve: () => void }
+const searchQueue: SearchWaiter[] = []
+let pumpTimer: ReturnType<typeof setTimeout> | null = null
 
-      const timeSinceLast = now - lastSearchStartTime
-      if (
-        activeSearchRequests < SEARCH_MAX_CONCURRENT &&
-        searchCallTimestamps.length < SEARCH_RATE_LIMIT_PER_MINUTE &&
-        timeSinceLast >= SEARCH_MIN_INTERVAL_MS
-      ) {
-        activeSearchRequests++
-        lastSearchStartTime = Date.now()
-        searchCallTimestamps.push(Date.now())
-        resolve()
-      } else {
-        const wait = Math.max(50, SEARCH_MIN_INTERVAL_MS - timeSinceLast)
-        setTimeout(tryAcquire, wait)
-      }
+function pumpSearchQueue() {
+  if (pumpTimer) {
+    clearTimeout(pumpTimer)
+    pumpTimer = null
+  }
+
+  while (searchQueue.length > 0) {
+    const now = Date.now()
+    const cutoff = now - SEARCH_RATE_WINDOW_MS
+    while (searchCallTimestamps.length && searchCallTimestamps[0] < cutoff) searchCallTimestamps.shift()
+
+    if (activeSearchRequests >= SEARCH_MAX_CONCURRENT) return // a release will pump again
+
+    const timeSinceLast = now - lastSearchStartTime
+    if (searchCallTimestamps.length >= SEARCH_RATE_LIMIT_PER_MINUTE) {
+      pumpTimer = setTimeout(pumpSearchQueue, Math.max(50, searchCallTimestamps[0] + SEARCH_RATE_WINDOW_MS - now))
+      return
     }
-    tryAcquire()
+    if (timeSinceLast < SEARCH_MIN_INTERVAL_MS) {
+      pumpTimer = setTimeout(pumpSearchQueue, SEARCH_MIN_INTERVAL_MS - timeSinceLast)
+      return
+    }
+
+    const next = searchQueue.findIndex(w => w.interactive)
+    const waiter = searchQueue.splice(next >= 0 ? next : 0, 1)[0]
+    activeSearchRequests++
+    lastSearchStartTime = Date.now()
+    searchCallTimestamps.push(lastSearchStartTime)
+    waiter.resolve()
+  }
+}
+
+function acquireSearchSlot(interactive: boolean): Promise<void> {
+  return new Promise(resolve => {
+    searchQueue.push({ interactive, resolve })
+    pumpSearchQueue()
   })
 }
 
 function releaseSearchSlot() {
-  activeSearchRequests--
+  activeSearchRequests = Math.max(0, activeSearchRequests - 1)
+  pumpSearchQueue()
 }
 
-async function searchFetch(url: string, token: string): Promise<Response> {
-  await acquireSearchSlot()
+async function searchFetch(url: string, token: string, interactive = false): Promise<Response> {
+  await acquireSearchSlot(interactive)
   try {
     return await fetch(url, { headers: headers(token) })
   } finally {
@@ -246,7 +268,7 @@ export async function searchGitHubUsernames(token: string, query: string): Promi
   if (trimmed.length < 2) return []
   try {
     const q = encodeURIComponent(`${trimmed} in:login type:user`)
-    const res = await searchFetch(`${API_BASE}/search/users?q=${q}&per_page=10`, token)
+    const res = await searchFetch(`${API_BASE}/search/users?q=${q}&per_page=10`, token, true)
     if (!res.ok) return []
     const data = await res.json()
     return (data.items || []).map((u: any) => u.login)

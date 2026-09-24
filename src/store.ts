@@ -119,19 +119,40 @@ function getReviewRequestedCount(prs: PullRequest[], ignoredPRs: Set<string>): n
   return (prs || []).filter(pr => isPullRequest(pr) && !ignoredPRs.has(`${pr.repo_full_name}#${pr.number}`)).length
 }
 
+// Shared by the full poll and the targeted refresh, so changing a filter doesn't have to
+// re-fetch My PRs, Drafts, Reviewed, comments and pipelines that the filter can't affect.
+async function loadReviewRequested(
+  token: string,
+  username: string,
+  settings: AppSettings,
+  pages: number,
+  reviewedPRs: PullRequest[]
+): Promise<{ prs: PullRequest[]; hasMore: boolean }> {
+  const reviewFilter = settings.reviewRequestedFilter?.length
+    ? settings.reviewRequestedFilter
+    : undefined
+
+  const { prs, hasMore } = await github.fetchReviewRequestedPRs(token, username, reviewFilter, pages)
+
+  const reviewedIds = new Set(reviewedPRs.map(pr => pr.id))
+  const merged = prs
+    .filter(isPullRequest)
+    .filter(pr => !reviewedIds.has(pr.id))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  // Unchanged PRs cost nothing: github.ts keys enrichment on updated_at, so only PRs
+  // that moved since the last fetch hit the API.
+  const enrichLimit = Math.min(merged.length, 10 * pages)
+  const enriched = await github.enrichWithIncomingReviewState(token, merged.slice(0, enrichLimit))
+
+  return {
+    prs: [...enriched, ...merged.slice(enrichLimit)].filter(isPullRequest),
+    hasMore
+  }
+}
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let filterChangePollTimer: ReturnType<typeof setTimeout> | null = null
-let pollAgainWhenIdle = false
-
-// Inputs changed (filters, load more), so this refresh must not be dropped the way a
-// redundant trigger is: if a poll is in flight, run another one as soon as it finishes.
-function requestRefresh(poll: () => Promise<void>, isPolling: boolean) {
-  if (isPolling) {
-    pollAgainWhenIdle = true
-    return
-  }
-  poll()
-}
 
 export const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_GITBAR_DEMO === '1'
 export const DEMO_TEAM_OPTIONS = [
@@ -323,6 +344,7 @@ export const useStore = create<AppState>((set, get) => ({
   reviewRequestedPages: 1,
   reviewRequestedHasMore: false,
   isLoadingMoreReviewRequested: false,
+  isRefreshingReviewRequested: false,
   userTeams: DEMO_MODE ? DEMO_TEAM_OPTIONS : loadFromStorage<string[]>('gitbar_user_teams', []),
 
   myPRComments: DEMO_MODE ? DEMO_DATA.myPRComments : loadFromStorage<CommentActivity[]>('gitbar_my_pr_comments', []),
@@ -506,14 +528,15 @@ export const useStore = create<AppState>((set, get) => ({
     } else {
       set({ settings })
       if (partial.reviewRequestedFilter) {
-        set({ reviewRequestedPages: 1, reviewRequestedHasMore: false })
-        // Debounce: adding several authors/teams back-to-back should trigger one
-        // refresh, not a search round-trip per addition.
+        set({ reviewRequestedPages: 1, reviewRequestedHasMore: false, isRefreshingReviewRequested: true })
+        // Short debounce so adding several entries quickly costs one refresh, not one
+        // per addition. Only the Review Requested list reloads; nothing else is affected
+        // by this setting.
         if (filterChangePollTimer) clearTimeout(filterChangePollTimer)
         filterChangePollTimer = setTimeout(() => {
           filterChangePollTimer = null
-          requestRefresh(get().poll, get().isPolling)
-        }, 1500)
+          get().refreshReviewRequested().catch(() => { /* surfaced via pollError */ })
+        }, 400)
       }
     }
 
@@ -588,28 +611,10 @@ export const useStore = create<AppState>((set, get) => ({
       const myPRs = [...enrichedMyPRs, ...rawMyPRs.slice(8)]
 
       // Review requested: one batched search per author/team group, per loaded page
-      const { prs: reviewRequestedPRs, hasMore: reviewRequestedHasMore } = await tolerant(
+      const { prs: allReviewRequestedPRs, hasMore: reviewRequestedHasMore } = await tolerant(
         { prs: previous.reviewRequestedPRs, hasMore: previous.reviewRequestedHasMore },
-        () => github.fetchReviewRequestedPRs(token, username, reviewFilter, get().reviewRequestedPages)
+        () => loadReviewRequested(token, username, settings, get().reviewRequestedPages, rawReviewedPRs)
       )
-
-      const validReviewRequested = reviewRequestedPRs.filter(isPullRequest)
-      const reviewedIds = new Set(rawReviewedPRs.map(pr => pr.id))
-      const mergedReviewRequested = validReviewRequested
-        .filter(pr => !reviewedIds.has(pr.id))
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-      // Enrich what's actually loaded. Unchanged PRs cost nothing: github.ts keys
-      // enrichment on updated_at, so only PRs that moved since last poll hit the API.
-      const enrichLimit = Math.min(mergedReviewRequested.length, 10 * get().reviewRequestedPages)
-      const enrichedReviewRequested = await github.enrichWithIncomingReviewState(
-        token,
-        mergedReviewRequested.slice(0, enrichLimit)
-      )
-      const allReviewRequestedPRs = [
-        ...enrichedReviewRequested,
-        ...mergedReviewRequested.slice(enrichLimit)
-      ].filter(isPullRequest)
 
       // Review state enrichment (limited to 5 most recent to save API calls)
       const reviewedPRs = await github.enrichWithReviewState(token, rawReviewedPRs.slice(0, 5), username)
@@ -655,7 +660,7 @@ export const useStore = create<AppState>((set, get) => ({
       const newEvents: NotificationEvent[] = []
 
       // Build a set of PR IDs that pass our review-requested filter
-      const relevantReviewPRIds = new Set(reviewRequestedPRs.map(pr => pr.number))
+      const relevantReviewPRIds = new Set(allReviewRequestedPRs.map(pr => pr.number))
       // Also include PRs the user authored (for reply notifications)
       const myPRNumbers = new Set(myPRs.map(pr => pr.number))
 
@@ -760,10 +765,22 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       const allEvents = [...newEvents, ...get().events].slice(0, 100)
-      const badgeCount = getReviewRequestedCount(allReviewRequestedPRs, get().ignoredPRs)
+
+      // A filter change during this poll already triggered its own refresh, so these
+      // results are for the old filter and must not clobber the newer ones.
+      const filterChangedMidPoll =
+        (get().settings.reviewRequestedFilter || []).join('\u0000') !==
+        (settings.reviewRequestedFilter || []).join('\u0000')
+
+      const reviewRequestedPatch = filterChangedMidPoll
+        ? {}
+        : { reviewRequestedPRs: allReviewRequestedPRs, reviewRequestedHasMore }
+      const badgeCount = filterChangedMidPoll
+        ? get().badgeCount
+        : getReviewRequestedCount(allReviewRequestedPRs, get().ignoredPRs)
 
       saveToStorage('gitbar_events', allEvents)
-      saveToStorage('gitbar_review_requested_prs', allReviewRequestedPRs)
+      if (!filterChangedMidPoll) saveToStorage('gitbar_review_requested_prs', allReviewRequestedPRs)
 
       // Advancing the watermark after a failed notification fetch would skip that window
       // for good, so hold the old one until notifications actually come back.
@@ -776,8 +793,7 @@ export const useStore = create<AppState>((set, get) => ({
         myPRs,
         draftPRs,
         reviewedPRs: allReviewedPRs,
-        reviewRequestedPRs: allReviewRequestedPRs,
-        reviewRequestedHasMore,
+        ...reviewRequestedPatch,
         myPRComments,
         reviewReplies,
         events: allEvents,
@@ -808,10 +824,33 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isPolling: false, pollError: 'Network error, check your connection' })
       }
     }
+  },
 
-    if (pollAgainWhenIdle) {
-      pollAgainWhenIdle = false
-      get().poll()
+  refreshReviewRequested: async () => {
+    if (DEMO_MODE) return
+    const { token, username, settings, reviewRequestedPages } = get()
+    if (!token || !username) return
+
+    set({ isRefreshingReviewRequested: true })
+    try {
+      const { prs, hasMore } = await loadReviewRequested(
+        token, username, settings, reviewRequestedPages, get().reviewedPRs
+      )
+      const badgeCount = getReviewRequestedCount(prs, get().ignoredPRs)
+      saveToStorage('gitbar_review_requested_prs', prs)
+      set({
+        reviewRequestedPRs: prs,
+        reviewRequestedHasMore: hasMore,
+        badgeCount,
+        pollError: null
+      })
+      window.gitbar?.updateBadge(badgeCount)
+    } catch (err) {
+      if (err instanceof GitHubApiError) set({ pollError: err.message })
+      else set({ pollError: 'Network error, check your connection' })
+      throw err
+    } finally {
+      set({ isRefreshingReviewRequested: false })
     }
   },
 
@@ -823,13 +862,10 @@ export const useStore = create<AppState>((set, get) => ({
       isLoadingMoreReviewRequested: true
     })
     try {
-      if (get().isPolling) {
-        requestRefresh(get().poll, true)
-        return
-      }
-      await get().poll()
+      await get().refreshReviewRequested()
+    } catch {
       // A failed fetch delivered no extra page, so don't keep paying for it every poll.
-      if (get().pollError) set({ reviewRequestedPages })
+      set({ reviewRequestedPages })
     } finally {
       set({ isLoadingMoreReviewRequested: false })
     }

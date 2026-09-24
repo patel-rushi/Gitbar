@@ -3,6 +3,7 @@
 ## Unreleased
 - Review Requested is simpler: add an author to follow their PRs, a team to catch its review requests, or yourself for PRs that name you.
 - With no filters set, Review Requested shows everything waiting on you, including reviews asked of your teams.
+- Changing a filter now updates the list in about a second instead of several.
 - GitBar now makes far fewer GitHub requests, so you hit rate limits much less often.
 - A hiccup on one list no longer wipes the others; you keep what loaded and see what went wrong.
 - Fixed suggested authors staying empty, and a typo in a filter no longer empties the whole list.

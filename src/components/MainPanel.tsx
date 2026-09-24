@@ -16,6 +16,7 @@ export function MainPanel() {
     settings, updateSettings,
     myPRs, draftPRs, reviewedPRs, reviewRequestedPRs,
     reviewRequestedHasMore, isLoadingMoreReviewRequested, loadMoreReviewRequested,
+    isRefreshingReviewRequested,
     myPRComments, reviewReplies,
     badgeCount, pollError,
     tabs, isPolling, lastPollAt, poll, startPolling,
@@ -122,9 +123,11 @@ export function MainPanel() {
               <span className="review-requested-config-copy">
                 <span className="review-requested-config-title">Review Requested Filters</span>
                 <span className="review-requested-config-subtitle">
-                  {reviewFilterCount > 0
-                    ? `${reviewFilterCount} active filter${reviewFilterCount > 1 ? 's' : ''}`
-                    : 'No filters, showing requests for you and your teams'}
+                  {isRefreshingReviewRequested
+                    ? 'Updating…'
+                    : reviewFilterCount > 0
+                      ? `${reviewFilterCount} active filter${reviewFilterCount > 1 ? 's' : ''}`
+                      : 'No filters, showing requests for you and your teams'}
                 </span>
               </span>
               <span className="review-requested-config-cta">Configure</span>
